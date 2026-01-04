@@ -9,7 +9,7 @@ import logging
 # === CONFIG ===
 TELEGRAM_TOKEN = "8422797197:AAFpQxUsKpvPlCc1MCi1DgbsRRCMVK8w4Wg"  # From @BotFather
 CHAT_ID = "8095552564"  # From @userinfobot
-TEST_MODE = True  # Set False for production
+TEST_MODE = False  # Set False for production
 CRITERIA = {
     'price_52w_low_pct': 1.03,  # Within 3% of 52w low
     'min_market_cap': 5e9  # $5B+
