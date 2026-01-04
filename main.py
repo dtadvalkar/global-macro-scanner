@@ -11,8 +11,8 @@ TELEGRAM_TOKEN = "8422797197:AAFpQxUsKpvPlCc1MCi1DgbsRRCMVK8w4Wg"  # From @BotFa
 CHAT_ID = "8095552564"  # From @userinfobot
 TEST_MODE = False  # Set False for production
 CRITERIA = {
-    'price_52w_low_pct': 1.03,  # Within 3% of 52w low
-    'min_market_cap': 5e9  # $5B+
+    'price_52w_low_pct': 1.10,  # Within 10% of 52w low
+    'min_market_cap': 2e9  # $2B+
 }
 
 
