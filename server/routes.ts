@@ -34,6 +34,8 @@ export async function registerRoutes(
 
   app.get(api.stocks.get.path, async (req, res) => {
     const symbol = req.params.symbol;
+    // Attempt update from Yahoo before returning
+    await storage.updateStockFromYahoo(symbol);
     const stock = await storage.getStockBySymbol(symbol);
     if (!stock) {
       res.status(404).json({ message: "Stock not found" });
