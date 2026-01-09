@@ -4,6 +4,7 @@ import asyncio
 import pandas as pd
 from data.currency import usd_market_cap
 from datetime import datetime
+from screening.screening_utils import should_pass_screening, calculate_rsi, calculate_sma, calculate_atr
 
 util.patchAsyncio()
 
@@ -12,51 +13,98 @@ class BaseProvider:
         raise NotImplementedError
 
 class YFinanceProvider(BaseProvider):
+    """
+    Basic YFinance provider with minimal rate limiting.
+
+    For production use with large universes, consider RateLimitResistantProvider
+    from providers_optimized.py which includes advanced rate limiting strategies.
+    """
+
+    def __init__(self, requests_per_second: float = 0.5):
+        self.requests_per_second = requests_per_second
+        self.last_request_time = 0
+
+    def _rate_limit_wait(self):
+        """Simple rate limiting"""
+        import time
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        min_interval = 1.0 / self.requests_per_second
+
+        if time_since_last < min_interval:
+            time.sleep(min_interval - time_since_last)
+
+        self.last_request_time = time.time()
+
     def get_market_data(self, tickers, criteria):
         results = []
-        for symbol in tickers:
-            try:
-                stock = yf.Ticker(symbol)
-                hist = stock.history(period='1y')
-                if not hist.empty and len(hist) > criteria.get('min_history_days', 0):
-                    info = stock.info
-                    usd_mcap = usd_market_cap(symbol, info.get('marketCap', 0))
-                    
-                    # 🚀 Use modular registry
-                    from config.markets import get_min_market_cap
-                    
-                    # Determine exchange from suffix
-                    exchange_map = {'.NS': 'NSE', '.TO': 'TSE', '.JK': 'IDX', '.BK': 'SET'}
-                    exchange = 'SMART'
-                    for suffix, ex in exchange_map.items():
-                        if symbol.endswith(suffix):
-                            exchange = ex
-                            break
-                    
-                    min_cap = get_min_market_cap(exchange)
-                    
-                    # RVOL Calculation
-                    current_vol = hist['Volume'].iloc[-1]
-                    avg_vol_30d = hist['Volume'].tail(30).mean()
-                    rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
-                    
-                    # LOGIC: (Vol > Min) OR (RVOL > Min)
-                    vol_ok = (current_vol >= criteria.get('min_volume', 100000))
-                    rvol_ok = (rvol >= criteria.get('min_rvol', 2.0))
-                    
-                    if usd_mcap > min_cap and (vol_ok or rvol_ok):
-                        low_52w = hist['Low'].min()
+        batch_size = 20  # Process in small batches to avoid rate limits
+
+        print(f"YFinance: Processing {len(tickers)} stocks in batches of {batch_size}")
+
+        for i in range(0, len(tickers), batch_size):
+            batch = tickers[i:i + batch_size]
+            print(f"  Processing batch {i//batch_size + 1}: {len(batch)} stocks")
+
+            for symbol in batch:
+                try:
+                    self._rate_limit_wait()
+
+                    stock = yf.Ticker(symbol)
+                    hist = stock.history(period='1y')
+
+                    if not hist.empty and len(hist) > criteria.get('min_history_days', 0):
+                        info = stock.info
+
+                        # Basic data extraction
                         current = hist['Close'].iloc[-1]
-                        pct_from_low = current / low_52w
-                        
-                        if pct_from_low <= criteria['price_52w_low_pct']:
-                            results.append({
-                                'symbol': symbol, 'price': current, 'low_52w': low_52w,
-                                'usd_mcap': usd_mcap/1e9, 'pct_from_low': pct_from_low,
-                                'rvol': rvol, 'time': datetime.now()
-                            })
-            except Exception as e:
-                print(f"  ⚠️ {symbol} error (yfinance): {str(e)[:30]}")
+                        low_52w = hist['Low'].min()
+                        high_52w = hist['High'].max()
+                        current_vol = hist['Volume'].iloc[-1]
+                        avg_vol_30d = hist['Volume'].tail(30).mean()
+                        rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
+
+                        usd_mcap = usd_market_cap(symbol, info.get('marketCap', 0))
+
+                        # Prepare data for centralized screening
+                        symbol_data = {
+                            'symbol': symbol,
+                            'price': current,
+                            'low_52w': low_52w,
+                            'high_52w': high_52w,
+                            'usd_mcap': usd_mcap / 1e9,  # Convert to billions for display
+                            'rvol': rvol,
+                            'volume': current_vol,
+                            'time': datetime.now()
+                        }
+
+                        # Calculate additional technical indicators if enabled
+                        if criteria.get('rsi_enabled', False):
+                            symbol_data['rsi'] = calculate_rsi(hist['Close'])
+
+                        if criteria.get('ma_enabled', False):
+                            sma50 = calculate_sma(hist['Close'], 50)
+                            sma200 = calculate_sma(hist['Close'], 200)
+                            symbol_data['price_vs_sma50_pct'] = current / sma50 if sma50 > 0 else 1.0
+                            symbol_data['sma50_vs_sma200_pct'] = sma50 / sma200 if sma200 > 0 else 1.0
+
+                        if criteria.get('atr_enabled', False):
+                            symbol_data['atr_pct'] = calculate_atr(hist['High'], hist['Low'], hist['Close'])
+
+                        # Apply centralized screening logic
+                        filtered_result = should_pass_screening(symbol_data, criteria)
+                        if filtered_result:
+                            results.append(filtered_result)
+
+                except Exception as e:
+                    print(f"  Warning: {symbol} error (yfinance): {str(e)[:30]}")
+
+            # Brief pause between batches
+            if i + batch_size < len(tickers):
+                import time
+                time.sleep(2.0)  # 2 second pause between batches
+
+        print(f"YFinance: Completed processing, found {len(results)} qualifying stocks")
         return results
 
 class IBKRProvider(BaseProvider):
@@ -73,7 +121,7 @@ class IBKRProvider(BaseProvider):
             # Type 1 = Real-time (User has enabled for free markets)
             # Type 3 = Delayed (Fallback to ensure zero-fee scanning elsewhere)
             self.ib.reqMarketDataType(3) 
-            print(f"✅ Connected to IBKR on {self.host}:{self.port} (Hybrid Data Mode Active)")
+            print(f"Connected to IBKR on {self.host}:{self.port} (Hybrid Data Mode Active)")
             return True
         except Exception:
             return False
@@ -82,10 +130,10 @@ class IBKRProvider(BaseProvider):
         try:
             if not self.ib.isConnected():
                 if not await self.connect():
-                    print("❌ IBKR Connection failed. Use fallback.")
+                    print("IBKR Connection failed. Use fallback.")
                     return []
             
-            print(f"🚀 IBKR Parallel Scan: {len(tickers)} stocks...")
+            print(f"IBKR Parallel Scan: {len(tickers)} stocks...")
             results = []
             batch_size = 50
             for i in range(0, len(tickers), batch_size):
@@ -93,7 +141,7 @@ class IBKRProvider(BaseProvider):
                 tasks = [self.process_stock(s, criteria) for s in batch]
                 batch_results = await asyncio.gather(*tasks)
                 results.extend([r for r in batch_results if r])
-            
+
             return results
         finally:
             if self.ib.isConnected():
@@ -144,10 +192,11 @@ class IBKRProvider(BaseProvider):
             
             if not bars: return None
 
+            # Extract basic price data
             low_52w = min(b.low for b in bars)
+            high_52w = max(b.high for b in bars)  # Add high for 52w high check
             current = bars[-1].close
-            pct_from_low = current / low_52w
-            
+
             # RVOL Calculation
             # If TRADES worked, bars[i].volume is available. If MIDPOINT, it's 0/-1.
             current_vol = bars[-1].volume
@@ -163,16 +212,51 @@ class IBKRProvider(BaseProvider):
                     rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
                 except Exception:
                     rvol = 0
-            
-            # LOGIC: (Vol > Min) OR (RVOL > Min)
-            vol_ok = (current_vol >= criteria.get('min_volume', 100000))
-            rvol_ok = (rvol >= criteria.get('min_rvol', 2.0))
 
-            if pct_from_low <= criteria['price_52w_low_pct'] and (vol_ok or rvol_ok):
-                return {
-                    'symbol': symbol, 'price': current, 'low_52w': low_52w,
-                    'pct_from_low': pct_from_low, 'rvol': rvol, 'time': datetime.now()
-                }
+            # Prepare data for centralized screening
+            symbol_data = {
+                'symbol': symbol,
+                'price': current,
+                'low_52w': low_52w,
+                'high_52w': high_52w,
+                'rvol': rvol,
+                'volume': current_vol,
+                'time': datetime.now()
+            }
+
+            # Get market cap from YFinance (IBKR doesn't provide it directly)
+            try:
+                yf_ticker = yf.Ticker(symbol)
+                usd_mcap = usd_market_cap(symbol, yf_ticker.info.get('marketCap', 0))
+                symbol_data['usd_mcap'] = usd_mcap / 1e9  # Convert to billions for display
+            except Exception:
+                # If market cap fetch fails, set to 0 (will be filtered out by market cap check)
+                symbol_data['usd_mcap'] = 0
+
+            # Calculate additional technical indicators if enabled
+            if criteria.get('rsi_enabled', False) or criteria.get('ma_enabled', False) or criteria.get('atr_enabled', False):
+                # Need to get price series from YFinance for technical indicators
+                try:
+                    yf_hist = yf.Ticker(symbol).history(period='1y')
+                    if not yf_hist.empty:
+                        if criteria.get('rsi_enabled', False):
+                            symbol_data['rsi'] = calculate_rsi(yf_hist['Close'])
+
+                        if criteria.get('ma_enabled', False):
+                            sma50 = calculate_sma(yf_hist['Close'], 50)
+                            sma200 = calculate_sma(yf_hist['Close'], 200)
+                            symbol_data['price_vs_sma50_pct'] = current / sma50 if sma50 > 0 else 1.0
+                            symbol_data['sma50_vs_sma200_pct'] = sma50 / sma200 if sma200 > 0 else 1.0
+
+                        if criteria.get('atr_enabled', False):
+                            symbol_data['atr_pct'] = calculate_atr(yf_hist['High'], yf_hist['Low'], yf_hist['Close'])
+                except Exception:
+                    # If YFinance fails, skip technical indicators but continue with basic screening
+                    pass
+
+            # Apply centralized screening logic
+            filtered_result = should_pass_screening(symbol_data, criteria)
+            return filtered_result
         except Exception:
             pass
         return None
@@ -182,7 +266,7 @@ class IBKRProvider(BaseProvider):
         try:
             return asyncio.run(self.get_market_data_async(tickers, criteria))
         except Exception as e:
-            print(f"  ❌ IBKR Async Error: {e}")
+            print(f"  IBKR Async Error: {e}")
             return []
 
 class IBKRScannerProvider(BaseProvider):

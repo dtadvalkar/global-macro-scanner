@@ -1,12 +1,22 @@
 # 🎣 Fishing Criteria Improvements
 
 ## Overview
-This document outlines suggested improvements to the stock screening criteria based on research from quantitative trading screeners and best practices.
+This document outlines the implemented improvements to the stock screening criteria based on research from quantitative trading screeners and best practices.
 
-## Current Criteria (Baseline)
+## Architecture Changes (Completed)
+
+### Centralized Criteria Management
+- **Before:** Filtering logic scattered across providers with hardcoded thresholds
+- **After:** All criteria defined in `config/criteria.py`, applied via `screening_utils.should_pass_screening()`
+- **Benefits:** Single source of truth, easier to modify, consistent across providers
+
+### Current Active Criteria
 - ✅ Price within 1% of 52-week low
 - ✅ Volume > 100k OR RVOL > 2.0x
 - ✅ Market cap filtering (by exchange type)
+- ✅ Price range limits (min/max price)
+- ✅ Volume consistency checks (20-day average)
+- ✅ RVOL anomaly filtering
 
 ## Suggested Enhancements
 
@@ -88,31 +98,55 @@ Start with Phase 1 improvements - they're easy to implement and add immediate va
 **Aggressive Approach:**
 Add RSI and basic moving averages (Phase 2) - these are standard indicators that most screeners use.
 
-## Code Changes Required
+## Implementation Status
 
-### 1. Update `config/criteria.py`
-Add new criteria parameters (see `criteria_enhanced.py` for reference)
+### Completed Architecture Changes
+1. **Centralized Criteria** (`config/criteria.py`): All criteria documented and organized
+2. **Screening Utility** (`screening/screening_utils.py`): Shared filtering logic
+3. **Provider Refactoring** (`data/providers.py`): Removed hardcoded logic, now uses centralized filtering
+4. **Documentation Updates**: Code comments and architecture docs updated
 
-### 2. Update `data/providers.py`
-- Add RSI calculation function
-- Add moving average calculations (SMA 50, SMA 200)
-- Add ATR calculation
-- Update screening logic to check new criteria
+### Current Implementation Details
 
-### 3. Update `screener/core.py` (if needed)
-- Add priority scoring if implementing Phase 3
+#### Active Criteria (Implemented)
+- **Price Filters:** 52-week low proximity, price range limits
+- **Volume Filters:** Absolute volume, RVOL, 20-day average consistency
+- **Market Cap:** Exchange-specific thresholds via market registry
+- **Risk Filters:** Price range caps, RVOL anomaly detection
 
-## Example: RSI Calculation
+#### Future Criteria (Documented but Disabled)
+- **Technical Indicators:** RSI, moving averages, ATR (framework ready)
+- **Fundamental Filters:** Debt-to-equity, current ratio (hooks in place)
+- **Pattern Recognition:** Volume confirmation, days since low (logic ready)
+- **Priority Scoring:** Composite ranking system (structure ready)
+
+### Code Architecture
+
+#### Before (Scattered Logic)
 ```python
-def calculate_rsi(prices, period=14):
-    """Calculate RSI from price series"""
-    delta = prices.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi.iloc[-1]
+# In YFinanceProvider
+if usd_mcap > min_cap and (vol_ok or rvol_ok):
+    # ... hardcoded filtering
+
+# In IBKRProvider
+if pct_from_low <= criteria['price_52w_low_pct'] and (vol_ok or rvol_ok):
+    # ... different hardcoded logic
 ```
+
+#### After (Centralized Logic)
+```python
+# In all providers
+symbol_data = {...}  # Raw data
+filtered_result = should_pass_screening(symbol_data, criteria)
+if filtered_result:
+    results.append(filtered_result)
+```
+
+#### Benefits
+- **Consistency:** Same logic across all data sources
+- **Maintainability:** Change criteria in one place
+- **Extensibility:** Easy to add new filters
+- **Testing:** Centralized logic easier to unit test
 
 ## Testing Strategy
 1. Run current scanner and save results

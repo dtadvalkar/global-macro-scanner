@@ -22,12 +22,12 @@ def get_universe(markets):
         # Try Cache First
         cached = db.get_cached_tickers(db_key)
         if cached:
-            print(f"📦 Loaded {len(cached)} {db_key} tickers from PostgreSQL cache.")
+            print(f"Loaded {len(cached)} {db_key} tickers from PostgreSQL cache.")
             universe.extend(cached)
             continue
 
         # Fetch from FinanceDatabase
-        print(f"🌍 Loading {db_key} universe (financedatabase)...")
+        print(f"Loading {db_key} universe (financedatabase)...")
         try:
             equities = fd.Equities()
             selection = equities.search(exchange=fd_key)
@@ -49,12 +49,12 @@ def get_universe(markets):
             print(f"  → Found {len(tickers)} {db_key} stocks (Cached to DB)")
             
         except Exception as e:
-            print(f"⚠️ {db_key} load failed: {e}")
+            print(f"Warning: {db_key} load failed: {e}")
             fallback = {
                 'NSE': ['RELIANCE.NS', 'TCS.NS'],
                 'TSX': ['RY.TO', 'TD.TO']
             }.get(db_key, [])
             universe.extend(fallback)
         
-    print(f"✅ Loaded {len(universe)} stocks total")
+    print(f"Loaded {len(universe)} stocks total")
     return universe

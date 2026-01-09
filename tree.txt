@@ -1,0 +1,835 @@
+Folder PATH listing for volume Windows-SSD
+Volume serial number is DCE5-33F1
+C:.
+|   .aider.chat.history.md
+|   .aider.input.history
+|   .gitignore
+|   .replit
+|   Cashtag_Backtest_Plan.md
+|   main.py
+|   main_v1_backup.py
+|   package_backup.json
+|   pyproject.toml
+|   recent_catches_backup.csv
+|   replit.md
+|   test_telegram.py
+|   tree.txt
+|   uv.lock
+|   
++---.aider.tags.cache.v4
+|       cache.db
+|       cache.db-shm
+|       cache.db-wal
+|       
++---.git
+|   |   COMMIT_EDITMSG
+|   |   config
+|   |   description
+|   |   HEAD
+|   |   index
+|   |   
+|   +---hooks
+|   |       applypatch-msg.sample
+|   |       commit-msg.sample
+|   |       fsmonitor-watchman.sample
+|   |       post-update.sample
+|   |       pre-applypatch.sample
+|   |       pre-commit.sample
+|   |       pre-merge-commit.sample
+|   |       pre-push.sample
+|   |       pre-rebase.sample
+|   |       pre-receive.sample
+|   |       prepare-commit-msg.sample
+|   |       push-to-checkout.sample
+|   |       sendemail-validate.sample
+|   |       update.sample
+|   |       
+|   +---info
+|   |       exclude
+|   |       
+|   +---logs
+|   |   |   HEAD
+|   |   |   
+|   |   \---refs
+|   |       +---heads
+|   |       |       main
+|   |       |       replit-agent
+|   |       |       
+|   |       \---remotes
+|   |           \---gitsafe-backup
+|   |                   main
+|   |                   
+|   +---objects
+|   |   +---01
+|   |   |       502af6ec778bacd6021459f13c7d150fc8e715
+|   |   |       b8b6d4f716ff7c26065bc9e46aebd932729fc1
+|   |   |       cded2ca40d5ab3de7c9992546ef79090e134e7
+|   |   |       d977fc29df156fb6e15f5d9f916683fd033267
+|   |   |       
+|   |   +---04
+|   |   |       930eca77150346681f6cbd6d402944636cacf3
+|   |   |       
+|   |   +---05
+|   |   |       273be29fdace374fa57c8d7bbb8e305d6768c0
+|   |   |       
+|   |   +---07
+|   |   |       360c454bb97dc885828c44836cfae2cfa2a4a7
+|   |   |       615a28e858414c8dd48fabfe3792d09b50721e
+|   |   |       b31dedd6ebd092a6ca9b3baa6926a4d09c273d
+|   |   |       cb20469811792b793deec018a8e0c3733fee8e
+|   |   |       
+|   |   +---08
+|   |   |       d4246652b4c39c8cd7707bbce0a1ac5ee39423
+|   |   |       
+|   |   +---09
+|   |   |       1358b0c7f62599bf381745116478708ec19bfb
+|   |   |       
+|   |   +---0a
+|   |   |       ae450b09ec6a71353beb55c2b175d2030e0dc4
+|   |   |       
+|   |   +---0d
+|   |   |       167e771b9ab7401ce291e37fe4cbc52be7778f
+|   |   |       a5cb8b74d1b02569a8bf0eaf36d135c97315d5
+|   |   |       
+|   |   +---0e
+|   |   |       ae1629504fb797bef6b1af6bf8550dd1761b0e
+|   |   |       cb100c2adcf634b77982a84dc9efa4260b2155
+|   |   |       
+|   |   +---0f
+|   |   |       7532d319e2eedd70a4e127bed5ac0eab825748
+|   |   |       7adba0a4576f28992bf8ef687128299b331ab3
+|   |   |       
+|   |   +---10
+|   |   |       2247bd476971d12e2a8b7387acc2901382eb4b
+|   |   |       4ec94abdf29f349de68a5cbc68535761e63525
+|   |   |       
+|   |   +---12
+|   |   |       5a64fef13d31ef88c4af3576350e8d30aa8236
+|   |   |       
+|   |   +---13
+|   |   |       09cbd8ee89c5b7e25c012d0faabfa3c9fc796a
+|   |   |       19eb58f494c588ae6c3a28b6138adfe6f68bae
+|   |   |       95db6008457eaf398d111fb040f70a534e799d
+|   |   |       
+|   |   +---14
+|   |   |       6d6dfaa8f45dec0f0f85e327383b7d3be8d7c4
+|   |   |       9b820d5314b406db2a92194a863f8dff9431d0
+|   |   |       9fc4dc282c4134e322e6c5ee02d85405b036cd
+|   |   |       
+|   |   +---16
+|   |   |       4735eccfc6ac9d0c62221f9c86d040d2542296
+|   |   |       
+|   |   +---17
+|   |   |       38145cd511a080c5d08668a11704a63419f6d2
+|   |   |       a55c1f7b0eab8969614148ab2422537e46c2cc
+|   |   |       
+|   |   +---18
+|   |   |       8ff67e0efe76985099ec2eb85a5c5ae7291c05
+|   |   |       
+|   |   +---19
+|   |   |       a01e6be5559cb334b68298a25a4b37b144bfde
+|   |   |       
+|   |   +---1a
+|   |   |       22f8834477ce98ad7b9da9162ada864f28f11d
+|   |   |       
+|   |   +---1c
+|   |   |       876bbeecabe59b684719afe58e684f34cdecbf
+|   |   |       
+|   |   +---1d
+|   |   |       34a3b422ae52f5c76cdb34fa0422928584c743
+|   |   |       5ebf2a0193b6b569ade07dca03f3a17aef435e
+|   |   |       
+|   |   +---21
+|   |   |       54189d0c2760cd6c4fb56f4ab6199dfc229854
+|   |   |       74f7101ba18ec1385eed03f69dbd619feb98aa
+|   |   |       
+|   |   +---22
+|   |   |       3e67fb8101a28424becdb06f654b790c650201
+|   |   |       7cac58214c030325643be7dbd4f4b98196e93c
+|   |   |       
+|   |   +---28
+|   |   |       117a9c8e90c9a2f5debba842f93957a4da9397
+|   |   |       4cef5f7eab2bbaf3df7c3ebf00d236e703e1d0
+|   |   |       
+|   |   +---29
+|   |   |       5278152651767fa92cd3c7fc94b60bb0c31521
+|   |   |       
+|   |   +---2a
+|   |   |       4f71f97ae086a085607b610ed6981b0ee2d181
+|   |   |       
+|   |   +---2b
+|   |   |       0fe1dfef3b17850bbac040665f514a8ffd0f15
+|   |   |       4dacc9a866e045b80a6dfc27f1b05cd09bc741
+|   |   |       
+|   |   +---2c
+|   |   |       14125ac48b874740770da80d9e424daf1db58b
+|   |   |       
+|   |   +---2e
+|   |   |       42ef64fb39438db2e84a358c84fa0da8950499
+|   |   |       7af2b7f1a6f391da1631d93968a9d487ba977d
+|   |   |       
+|   |   +---2f
+|   |   |       1ad5ea123e08ce20699c1391b82ab328bfa9f8
+|   |   |       
+|   |   +---32
+|   |   |       0855f07fb5749fc3a036e87ba09537d92895ae
+|   |   |       0dca7f79add0a4d23ed9d749335bfb0ea70883
+|   |   |       
+|   |   +---34
+|   |   |       4311e1fab3f56318e16a58d80a9ffd0663cda0
+|   |   |       be1145bdc338144305b2da3582817a5763ceaf
+|   |   |       
+|   |   +---35
+|   |   |       52d0ad209b53039c0ec5119f3846d978939146
+|   |   |       8809ba4b649f24f9f54bd613bacbca54b08091
+|   |   |       
+|   |   +---36
+|   |   |       359ecc40bcae541c1348d5ae14b8dec06ff8b5
+|   |   |       bc03864db4e86e87b57414069a10592cd9d001
+|   |   |       
+|   |   +---39
+|   |   |       fba6d6fc8509b968824b5076a8791c46650294
+|   |   |       
+|   |   +---3a
+|   |   |       3fa2ec6fdeaeaf367078879f7ddaf4f1cf968c
+|   |   |       
+|   |   +---3b
+|   |   |       57a2162ea9c77b595d0129946fc0363dd3547c
+|   |   |       
+|   |   +---3c
+|   |   |       08b4b7319ea438c08d86d7f64579eb6d629971
+|   |   |       
+|   |   +---3d
+|   |   |       28d3f3bf5f4c715077f613554ecc70c578dbdc
+|   |   |       
+|   |   +---3e
+|   |   |       4de30e1161b3b4f22b302359b1393956bb2b3e
+|   |   |       
+|   |   +---40
+|   |   |       51300dcd8da5c163f65cac04f7a8a628f16e30
+|   |   |       9cfbfa02148aab0147bcc13b838b749e4cc45a
+|   |   |       afdd193de51dc49ca5e2426ad32afeeeb7efcb
+|   |   |       
+|   |   +---41
+|   |   |       1f51922144bf667c2a5d512ff712d1c37098bd
+|   |   |       362f6f40769bd800e4b1e77dfcc0ca61300636
+|   |   |       fa7e0561a3fdb5f986c1213a35e563de740e96
+|   |   |       
+|   |   +---43
+|   |   |       b43b48b84d3045a442409006d5cb8c5f35adfd
+|   |   |       
+|   |   +---45
+|   |   |       17c1e9c3a39bf79edccb6d8add63cc7cff1050
+|   |   |       
+|   |   +---46
+|   |   |       549ca13500aba2320270371ac29018dfc30489
+|   |   |       
+|   |   +---4b
+|   |   |       825dc642cb6eb9a060e54bf8d69288fbee4904
+|   |   |       
+|   |   +---4c
+|   |   |       626b548a586e4bab2d75e51dd2322bd8a5354b
+|   |   |       d7b4cb3770a444d70ce72acabcb58e4e3ab18a
+|   |   |       
+|   |   +---4d
+|   |   |       7d89f0d7e9146e1e11cc799ce465e21f2e5c4a
+|   |   |       858bb6b02662c749d3cb334129a9a1977b0c51
+|   |   |       
+|   |   +---4e
+|   |   |       065b76f387d0fd57a478ec1b877f5177de6861
+|   |   |       1643766d24d0272b2cb957dacadcf064501d01
+|   |   |       60485075cb49cbd75f5272b0d8033afca07a9e
+|   |   |       
+|   |   +---4f
+|   |   |       02ae6a48799a297ae92a9bcfa1f8de4d879be1
+|   |   |       03f0ec49ea8b3cb550c932c5a6bd5a7a98fae7
+|   |   |       
+|   |   +---51
+|   |   |       5580e76f98916dd460e55f600a7b9e949c52ea
+|   |   |       5ebd970b8a87a54f5e28f116d26659b826f6b3
+|   |   |       
+|   |   +---53
+|   |   |       b008d2a51c1e35ebe3f4117dc93ffbd5906187
+|   |   |       
+|   |   +---54
+|   |   |       1df2788e3dadd19f3c34675caaec66f6b93299
+|   |   |       f7a58b620433f24fbd2ff20f08d2ef97af9b2b
+|   |   |       
+|   |   +---56
+|   |   |       aad3a3528d7dadfaeae52d6c5fe77d7ee26693
+|   |   |       
+|   |   +---57
+|   |   |       2fdcf49e89d4f2f2b79a51e0654be3cf5e0e79
+|   |   |       
+|   |   +---58
+|   |   |       0710a6ddc419ada27612938f4e82facaef983c
+|   |   |       
+|   |   +---59
+|   |   |       11b982e2c2c0f943e4a77a098b4bc7ac00398d
+|   |   |       8e4f3b983fa0cc4e65055a1f628471d04d946f
+|   |   |       
+|   |   +---5a
+|   |   |       c9c7fc5b082e47426878c49a055658dc4e941e
+|   |   |       
+|   |   +---5b
+|   |   |       e61be34b5705d6c2501577bc192e7fc636be10
+|   |   |       
+|   |   +---5c
+|   |   |       871b18349b107862d5a273b8098da1e7fa94e5
+|   |   |       87ea4865610374cdc591d1619157b4d8909a87
+|   |   |       ca7a0e428666b2f5ccfefb7cd675ee703aa372
+|   |   |       db28742a06d17e3343e1ea25817ad56954fc6c
+|   |   |       ebb00ee796e53482b5847b1b30623e303adc7b
+|   |   |       
+|   |   +---5e
+|   |   |       7e0e34fceddc9d6ec6a6cc390b56fe008ad64f
+|   |   |       
+|   |   +---5f
+|   |   |       2e140c144f94d8403b44653b9299442d042638
+|   |   |       c91b2fa7be4995a220842c125a512e60096fe7
+|   |   |       e2007c2e0d27fddf261b1d94d4fcc5c6424f94
+|   |   |       
+|   |   +---60
+|   |   |       e6c96f72f0350d08b47e4730cab8f3975dc853
+|   |   |       
+|   |   +---61
+|   |   |       19b909c6b4d244ca783755d0a48061bb33d3ed
+|   |   |       
+|   |   +---62
+|   |   |       5caff34364d36bfd33beef352fb38c93cba110
+|   |   |       
+|   |   +---64
+|   |   |       15de405c8ac950324b88d74fdba2b42c6afd7d
+|   |   |       9b0f8a36df86164b531796887fcbab8bdb18cc
+|   |   |       
+|   |   +---68
+|   |   |       14410e7f42110acb3985ee3b5d0915c8f91469
+|   |   |       3faa793819982d64e21cb2939666fd6d4a7b13
+|   |   |       e9d41c43aae32ee5314e0006e01345589570f4
+|   |   |       ec3579fecd01b3acddd882ea15eac1c008c2a1
+|   |   |       
+|   |   +---69
+|   |   |       6e0d2b94fbc09e5bf2378678cfe86625c2f15c
+|   |   |       
+|   |   +---6a
+|   |   |       0ef53dde8991d3adeadd791cd262808aaf9ac0
+|   |   |       5357194a6af8e6613a754ee903bcf7c8d08ce4
+|   |   |       
+|   |   +---6b
+|   |   |       2626239e0384912fa08214ad18db4c1d38b551
+|   |   |       
+|   |   +---6c
+|   |   |       67edff67a48c6ac1c46f25a6d468dd461e66cb
+|   |   |       
+|   |   +---6d
+|   |   |       39996f87439dca5ff6689cf756ccb98f29b5ab
+|   |   |       53804d5085479a198b55c8c513be04b70eee9e
+|   |   |       7f12265ba0338704f013930ce4d52c56527dd1
+|   |   |       d9020191f3114e027fa38cad5986fe21bf97e7
+|   |   |       
+|   |   +---6e
+|   |   |       e34a0c15c42b75088329c03cf376655d6060f1
+|   |   |       
+|   |   +---6f
+|   |   |       3ed72fdf85aed65f6fe1ca9e883e0cc84f6e63
+|   |   |       cefff6bc31c62ff5adbe7a6a806c27ff63a9db
+|   |   |       
+|   |   +---70
+|   |   |       752f976572cb2735fab3031db05f5c4c52b6b5
+|   |   |       
+|   |   +---71
+|   |   |       5bda93b685278ac9251da86db35bb75d01f92e
+|   |   |       
+|   |   +---72
+|   |   |       9a17bc8bb3491eec05d85423eb5dd0dd3f10e3
+|   |   |       
+|   |   +---73
+|   |   |       5e1ba6b745d60a535086fdc76d4e0c4e23dfd4
+|   |   |       
+|   |   +---74
+|   |   |       b9fed2de6f80390db2d1c95eba6f9af56355f5
+|   |   |       c226fd2073410e125c59fc1cbac1ed76bc5951
+|   |   |       efa6bee7037d46ea6f1a08a89b68963660cca0
+|   |   |       
+|   |   +---76
+|   |   |       2beeede5a78ab5df6ef8fad2863b7e98f79781
+|   |   |       9c1ca47bec0d1d0ff3d2ecf2a25039b11d7ec2
+|   |   |       
+|   |   +---77
+|   |   |       6e1faeb67005c6d4b2776c2de7a0f66ca3571b
+|   |   |       
+|   |   +---7a
+|   |   |       0c129bfb24a8a2cc5a4bf08f5aef5d1473a8ca
+|   |   |       
+|   |   +---7b
+|   |   |       14c6952801cbfdbe9f404fa66944c5e2ae3831
+|   |   |       3a71b182d16a2655aaf048797b39a5c27f931a
+|   |   |       
+|   |   +---7d
+|   |   |       831c836fed286dc0f0c5e54feec961062b1f70
+|   |   |       
+|   |   +---7e
+|   |   |       1092a564490dc3577ee730317d7358e959ca31
+|   |   |       9d54ef5c87466a5dcc004e78d3ba4926162a5b
+|   |   |       
+|   |   +---7f
+|   |   |       3502f8b2820be1d6f0aa4c1ffaa351799c1ed3
+|   |   |       
+|   |   +---80
+|   |   |       98ff179775743d9d6740db2319214e2a25230b
+|   |   |       
+|   |   +---81
+|   |   |       5a9f3f1a1bd3f01c4e72037288bd0486b4d81e
+|   |   |       c2104b7810f698f3037b1a781969a6a0420de7
+|   |   |       
+|   |   +---82
+|   |   |       13d23abff0b87993bcac640b6c5b9a1fd63b3a
+|   |   |       1a32f3701193ec91f9cf2e22e34c6807c09d14
+|   |   |       34234289948e33df8ed810223efaa61bca56a1
+|   |   |       5df8c0741f9c54efa7925e2536670590fdf6a2
+|   |   |       79abb6d6e2cb13ca8d06813ff5550dd0edfca1
+|   |   |       b2f9ec98e0e9fdf48255ec354d88b7828830e8
+|   |   |       
+|   |   +---86
+|   |   |       a8a7e4a4e271bde7a93db9f945a09c91e6b181
+|   |   |       
+|   |   +---87
+|   |   |       22561cf6bda62d62f9a0c67730aefda971873a
+|   |   |       53f696bc891078e162307ba5770b0d4d22c28e
+|   |   |       
+|   |   +---8e
+|   |   |       7189199494f3ee8ccb0f450cf2a14b2f14ad76
+|   |   |       
+|   |   +---90
+|   |   |       4e9859808359a37ec05d87b205aeac0029fbd7
+|   |   |       
+|   |   +---91
+|   |   |       1fda1baa796dc346720297a1060b045b964b0e
+|   |   |       a93c7d0c1988896b6733254c971d4e04cc074b
+|   |   |       
+|   |   +---92
+|   |   |       9d331f8a83eaf7d3c64503a4439a3632e83159
+|   |   |       
+|   |   +---93
+|   |   |       6da2461899391f51c360fb5b4f47dc69fbed41
+|   |   |       95f33d4b065d2aa3b55565561fd6b4798cdd78
+|   |   |       b05c5527acfdd03a008ba7478154a8880f3412
+|   |   |       
+|   |   +---95
+|   |   |       693e0a3ccee21b6912fa1a9b565fa0280efec9
+|   |   |       85e59e22ef8d408199c4fe0a0787f5edf381d7
+|   |   |       
+|   |   +---96
+|   |   |       12042e61b44375f58b08eea6f66138bc01292b
+|   |   |       
+|   |   +---97
+|   |   |       95e6e6e50f4dc034f2d854665827f44d7e892a
+|   |   |       b550d2b6fd28bedc8268354d93f5fa72ae818e
+|   |   |       f10dad9cc4827ec6d49bebf982b5ea10d040a5
+|   |   |       
+|   |   +---9a
+|   |   |       7dd2e0b074df458520ff430b9af5309cd943e8
+|   |   |       fe1062a62804224e65d2457b909426671cb25a
+|   |   |       
+|   |   +---9b
+|   |   |       e43798abebae1b73b5f293220be08ddc4b2a9e
+|   |   |       
+|   |   +---9c
+|   |   |       2b9bf3705d8421bef00704c0c52e83d371ca11
+|   |   |       846e1e494a3020412b19cba2aa06dd7ee41f85
+|   |   |       
+|   |   +---9d
+|   |   |       1dcfdaf1a6857c5f83dc27019c7600e1ffaff8
+|   |   |       
+|   |   +---9f
+|   |   |       a48946afd1eb56bd932377fd888e3986304676
+|   |   |       f953cfc89b17412aee5c7e6fe53467dccc4d56
+|   |   |       
+|   |   +---a0
+|   |   |       203eefcb88d0dcf5e5ff0e2f90150a1b46ee05
+|   |   |       
+|   |   +---a1
+|   |   |       21abeb190356facc013cadc46c2ede92c01154
+|   |   |       
+|   |   +---a3
+|   |   |       7f17ba04055c1c174bd439d58aa3b5b2857cc9
+|   |   |       
+|   |   +---a4
+|   |   |       a2df4447e40fcd8d3bb0dd1a065a6ea8539d7c
+|   |   |       
+|   |   +---a5
+|   |   |       6957669c7911c0db315f5c06a44b7b11050472
+|   |   |       e93e2f14df8b6ce58af274dd448e53156dbae0
+|   |   |       
+|   |   +---a7
+|   |   |       91a453b6171e1e3b2dcda8bdfcc61253bd47ec
+|   |   |       
+|   |   +---a8
+|   |   |       22477534192c4df5073e4015f7461e739d3344
+|   |   |       3434704d2913791b7015b39f1150e672c94828
+|   |   |       
+|   |   +---a9
+|   |   |       591053cfbc8d6604b3bc41473d5944dccdaf6e
+|   |   |       8721a3b2cff58fc7e339ec66dd859a87137467
+|   |   |       
+|   |   +---aa
+|   |   |       3ef7792b866380aa91038beff862aa39ebe5c5
+|   |   |       58baa29c676db7b14a37436a9662107b0111ec
+|   |   |       
+|   |   +---ac
+|   |   |       e911667a84dbf17158a9bd233804201baa570a
+|   |   |       fd0a3ff297138bf1429f2b39d48e344cd91286
+|   |   |       
+|   |   +---ae
+|   |   |       2dc1dc62dd4861e6d34a71897e0b67ad12ae01
+|   |   |       68e0153e434682d6fbb82cd6c05be779e42502
+|   |   |       
+|   |   +---af
+|   |   |       f741cf984207b3b9c8dbf6c155ff50394c58d3
+|   |   |       
+|   |   +---b0
+|   |   |       46f09f173d088c9e6157bb35285474d10f74aa
+|   |   |       
+|   |   +---b1
+|   |   |       a1677b68fbd22e8eba77cc93fc3435750fd302
+|   |   |       
+|   |   +---b4
+|   |   |       424a480c9370a0ab5ba1a1041530f924d38084
+|   |   |       751cfd323e5141fed1dccc72df81cb82bf7eaf
+|   |   |       c5b9ef73c69a3569ec24643fbd9c26b0548feb
+|   |   |       c70e6f2d5b61bfddc9737d75a40b9a3f48f69a
+|   |   |       
+|   |   +---b5
+|   |   |       9d7adb5423941f5004d812a2780d78a4822305
+|   |   |       
+|   |   +---bb
+|   |   |       9ea5b48e47c69239527b6fbb5a2de2f3fa28e2
+|   |   |       a2920afc12722c846e20393916a2dc1b3cc818
+|   |   |       
+|   |   +---bd
+|   |   |       0c391ddd1088e9067844c48835bf4abcd61783
+|   |   |       
+|   |   +---be
+|   |   |       050b39cb72f6b1917b04f8850b6b4de6f14987
+|   |   |       
+|   |   +---c1
+|   |   |       db421afa37c2cf49594960876a056fdeb057f3
+|   |   |       
+|   |   +---c3
+|   |   |       30dbf966764b38dfea94734984c37ac3b2f00c
+|   |   |       
+|   |   +---c4
+|   |   |       95c706f54214e184cc10c1321874ee0718822f
+|   |   |       abbf37f217c715a0eaade7f45ac78600df419f
+|   |   |       
+|   |   +---c6
+|   |   |       5c4c6a2afbda6afb947a7e8e21696360adfb3d
+|   |   |       cda38da428cc523dd6e72c9151d2ccab879eb6
+|   |   |       
+|   |   +---c9
+|   |   |       771e1f5354b78938257fc902969d21659bccf4
+|   |   |       b0f70fa1efb3b1687aabb15bad01c8fd800cd2
+|   |   |       cb7a745cd20403f21942f9f2e0355620a965e3
+|   |   |       
+|   |   +---cb
+|   |   |       35e93a38cc7ad49c751a38e78761877fb27864
+|   |   |       
+|   |   +---cc
+|   |   |       c84b729a844d12552e5846e7e95b41b59bf89c
+|   |   |       
+|   |   +---ce
+|   |   |       9931d5883154d59ff4a49e89f3f1dcf1159f83
+|   |   |       a3a5028fb3dc559524256476aa12c70aee8294
+|   |   |       
+|   |   +---cf
+|   |   |       253cf17056ce04827219643e484ea99c77cf6b
+|   |   |       
+|   |   +---d0
+|   |   |       06a309536edf328d99d1c57d1fa40b505d55a6
+|   |   |       de28e9978f4bea91ba2b948e27ec2682230ffd
+|   |   |       
+|   |   +---d1
+|   |   |       195ec6f5ecabf64a57d245139aba1e925967b9
+|   |   |       
+|   |   +---d2
+|   |   |       38b8602ba4fe9ff26cb007d9fae0694ee0027c
+|   |   |       
+|   |   +---d3
+|   |   |       520de32a1051f8cd9a39b248fe4f57bc8ced45
+|   |   |       
+|   |   +---d4
+|   |   |       094fe09d8783460584f545fe83a566dd7a5ac3
+|   |   |       33014f467079880e6e0913f8bbdb24adb9f3ce
+|   |   |       
+|   |   +---d5
+|   |   |       5cdcfd477b354b52e56b4c48722650f74302f2
+|   |   |       8fe04900bf27f4c188d810cc50575231597f59
+|   |   |       
+|   |   +---d6
+|   |   |       04a44205f4872eb835996943b15ac121af72cf
+|   |   |       
+|   |   +---d7
+|   |   |       0afaf97595d518aa87d3884551c93bd4b63593
+|   |   |       3cfe33f05dc418a174878d283848e22c987e19
+|   |   |       b9ef12978379847f8fdf1859d40a76fe1b1b3d
+|   |   |       d8c1c0044effc1758dc56078cd6030100449cd
+|   |   |       
+|   |   +---d8
+|   |   |       6c4b88954f368e558cb66cf05eae291cd6a07f
+|   |   |       e0c9b9c878ac775a50ba048ac15d603ddf479a
+|   |   |       
+|   |   +---d9
+|   |   |       16ffb915b28e9d20d4cf2722f1519179900ef9
+|   |   |       
+|   |   +---da
+|   |   |       4b6c8d4973b6817b24a9a6b49590c4ed0fe68f
+|   |   |       
+|   |   +---db
+|   |   |       a9f8316f8e796e2808090c4f6cf770e6b90c4a
+|   |   |       
+|   |   +---dc
+|   |   |       de7c94a6c93ed8f86ecdf73b2b2edcfb819183
+|   |   |       
+|   |   +---dd
+|   |   |       bdd01d8d1491ab772790db8d40c5ac0a2630f3
+|   |   |       
+|   |   +---e1
+|   |   |       0ceaa9ea8e3e6771a4d78d960a2e4a9987e6f8
+|   |   |       61daec03130190dcfb597c8632f9df4ba407f5
+|   |   |       802ffe0799bdf9a43ff4f99149386427b9eb91
+|   |   |       ae87b9db8d9a636b8185da4ca6868c3b024d63
+|   |   |       
+|   |   +---e5
+|   |   |       35edf19b6bfb536134a54b49534b42b04a6351
+|   |   |       af89d2fc1d085aba04edabcb64e71ea8e1a624
+|   |   |       e2153a2f0ba4cc210880c290598a685e24d180
+|   |   |       
+|   |   +---e6
+|   |   |       9de29bb2d1d6434b8b29ae775ad8c2e48c5391
+|   |   |       a723d06574ee5cec8b00759b98f3fbe1ac7cc9
+|   |   |       e578b6080a7ea3efa3c3216a39d43029a16fa1
+|   |   |       
+|   |   +---ea
+|   |   |       40d196dc72673f36c4084bf56457385edc855e
+|   |   |       
+|   |   +---eb
+|   |   |       94f0b68264d9593a8d67398b1c042b681bd310
+|   |   |       f5c281ee7fbbf86462b33b7b9955d884d57580
+|   |   |       
+|   |   +---ec
+|   |   |       d1d9a5dec4873e1d5cad3604d84d12d1509976
+|   |   |       
+|   |   +---ed
+|   |   |       85bb44520414f3be08ab2d7888bdabaf4df94e
+|   |   |       
+|   |   +---ee
+|   |   |       25bd1cea235a88ab910fad87990c39e02cbaa2
+|   |   |       
+|   |   +---ef
+|   |   |       0124f9b4982d8023e7b270518334f0b5583658
+|   |   |       10c2ed7e50912f273475ad869da33890a56b66
+|   |   |       
+|   |   +---f0
+|   |   |       e4e3fb6407b9184a7e1087fb5bebe96a980bdf
+|   |   |       
+|   |   +---f1
+|   |   |       106dd27d9f5b223045ef22fbc8e00eb5784b7c
+|   |   |       
+|   |   +---f2
+|   |   |       373e067fe2b1cb17d6ae9aae27e17dce3c1b23
+|   |   |       a8d674f5c031393f29b2e0a3abcb06dc08b37f
+|   |   |       fda3b5a7f027fe505e94df6dc2073f9540ed8b
+|   |   |       
+|   |   +---f3
+|   |   |       15a142495772235f6e5324668ce3bc34ef1871
+|   |   |       8593bdcc2e700cd5a24d0b96640ca9ad474476
+|   |   |       
+|   |   +---f4
+|   |   |       219e26a6db39c227767f882f52aee15a0f961c
+|   |   |       bc5586b67f45d3cc35f228e8bac2e4bc2cea16
+|   |   |       
+|   |   +---f5
+|   |   |       071cc6f2d533d3d2f52aeb5d97ae6371c050a6
+|   |   |       7fffdb5a07cd21b12f8c014513475a6980a469
+|   |   |       e53593367cb1378302098bc198b2929be6e56b
+|   |   |       
+|   |   +---f6
+|   |   |       987fc6c1696843ef1986d49fca0dd74edb506d
+|   |   |       
+|   |   +---f7
+|   |   |       7d4075c55440dee351ed95c60322f0e87be665
+|   |   |       
+|   |   +---f8
+|   |   |       14ec73ccb373a15127a491c821c5d5c2ce5c16
+|   |   |       c49b960a9443e805ce1a13822aad7b730cb6ee
+|   |   |       efec9b356fac005cc090248c2d33e41c4d5969
+|   |   |       
+|   |   +---f9
+|   |   |       7e6c1d3708d363005bbe2de16cecc21c4f6b26
+|   |   |       8e381d6e68c26268b598d33ce6398177f091e7
+|   |   |       ba7f8b4901d059a522d76272612aa2a8321bc3
+|   |   |       e42c3849a4fb8a562c52f2161aad9d93e55854
+|   |   |       
+|   |   +---fa
+|   |   |       a320828ff447a59f4e298637de4e9e5dabad00
+|   |   |       cff5401273a6690520a3de8de6e3b6dec84700
+|   |   |       
+|   |   +---fc
+|   |   |       0fee11def21f0e6f4afc4661614e85519415a4
+|   |   |       790a80308832379e59b63381cfd5054364f5dc
+|   |   |       7f9646500e3ffb24ed9de4b290421ef630f57c
+|   |   |       
+|   |   +---ff
+|   |   |       15f148ebfe0508619fe7516ab826d34f05bbfb
+|   |   |       
+|   |   +---info
+|   |   \---pack
+|   \---refs
+|       +---heads
+|       |       main
+|       |       replit-agent
+|       |       
+|       +---remotes
+|       |   \---gitsafe-backup
+|       |           main
+|       |           
+|       +---replit
+|       |       agent-ledger
+|       |       
+|       \---tags
++---.local
+|   \---state
+|       \---replit
+|           \---agent
+|                   .agent_state_102247bd476971d12e2a8b7387acc2901382eb4b.bin
+|                   .agent_state_1319eb58f494c588ae6c3a28b6138adfe6f68bae.bin
+|                   .agent_state_227cac58214c030325643be7dbd4f4b98196e93c.bin
+|                   .agent_state_320dca7f79add0a4d23ed9d749335bfb0ea70883.bin
+|                   .agent_state_36bc03864db4e86e87b57414069a10592cd9d001.bin
+|                   .agent_state_762beeede5a78ab5df6ef8fad2863b7e98f79781.bin
+|                   .agent_state_8234234289948e33df8ed810223efaa61bca56a1.bin
+|                   .agent_state_825df8c0741f9c54efa7925e2536670590fdf6a2.bin
+|                   .agent_state_9a7dd2e0b074df458520ff430b9af5309cd943e8.bin
+|                   .agent_state_a9591053cfbc8d6604b3bc41473d5944dccdaf6e.bin
+|                   .agent_state_ace911667a84dbf17158a9bd233804201baa570a.bin
+|                   .agent_state_ae2dc1dc62dd4861e6d34a71897e0b67ad12ae01.bin
+|                   .agent_state_bba2920afc12722c846e20393916a2dc1b3cc818.bin
+|                   .agent_state_be050b39cb72f6b1917b04f8850b6b4de6f14987.bin
+|                   .agent_state_c9771e1f5354b78938257fc902969d21659bccf4.bin
+|                   .agent_state_d006a309536edf328d99d1c57d1fa40b505d55a6.bin
+|                   .agent_state_d0de28e9978f4bea91ba2b948e27ec2682230ffd.bin
+|                   .agent_state_d8e0c9b9c878ac775a50ba048ac15d603ddf479a.bin
+|                   .agent_state_e5af89d2fc1d085aba04edabcb64e71ea8e1a624.bin
+|                   .agent_state_f1106dd27d9f5b223045ef22fbc8e00eb5784b7c.bin
+|                   .agent_state_f5e53593367cb1378302098bc198b2929be6e56b.bin
+|                   .agent_state_faa320828ff447a59f4e298637de4e9e5dabad00.bin
+|                   .agent_state_main.bin
+|                   .latest.json
+|                   repl_state.bin
+|                   
++---client
+|   \---src
+|       +---components
+|       \---pages
++---global-macro-scanner
+|   |   .env
+|   |   config.py
+|   |   diagnostics.py
+|   |   ib_delayed_test.py
+|   |   ib_discovery.py
+|   |   ib_parameters.xml
+|   |   ib_xml_parser.py
+|   |   main.py
+|   |   ptt_contracts.txt
+|   |   recent_catches.csv
+|   |   scan_log.txt
+|   |   search_params.py
+|   |   
+|   +---.continue
+|   |   \---agents
+|   |           new-config.yaml
+|   |           
+|   +---alerts
+|   |   |   telegram.py
+|   |   |   
+|   |   \---__pycache__
+|   |           telegram.cpython-311.pyc
+|   |           
+|   +---config
+|   |   |   criteria.py
+|   |   |   criteria_enhanced.py
+|   |   |   markets.py
+|   |   |   settings.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---__pycache__
+|   |           criteria.cpython-311.pyc
+|   |           markets.cpython-311.pyc
+|   |           settings.cpython-311.pyc
+|   |           __init__.cpython-311.pyc
+|   |           
+|   +---data
+|   |   |   currency.py
+|   |   |   providers.py
+|   |   |   
+|   |   \---__pycache__
+|   |           currency.cpython-311.pyc
+|   |           providers.cpython-311.pyc
+|   |           
+|   +---docs
+|   |       criteria_improvements.md
+|   |       multi_account_thailand_investigation.md
+|   |       thailand_ibkr_delayed_data_investigation.md
+|   |       thailand_set_deep_dive.md
+|   |       thailand_set_investigation.md
+|   |       
+|   +---screener
+|   |   |   core.py
+|   |   |   universe.py
+|   |   |   
+|   |   +---ibkr
+|   |   |       ib_bulk_scanner.py
+|   |   |       ib_scanner.py
+|   |   |       
+|   |   \---__pycache__
+|   |           core.cpython-311.pyc
+|   |           universe.cpython-311.pyc
+|   |           
+|   +---storage
+|   |   |   csvlogging.py
+|   |   |   database.py
+|   |   |   
+|   |   \---__pycache__
+|   |           csvlogging.cpython-311.pyc
+|   |           database.cpython-311.pyc
+|   |           
+|   +---tests
+|   |       check_thailand_permissions.py
+|   |       debug_historical.py
+|   |       debug_suffixes.py
+|   |       diagnose_thailand.py
+|   |       diagnose_thailand_comprehensive.py
+|   |       find_ptt.py
+|   |       ib_test.py
+|   |       test_indonesia_access.py
+|   |       test_intl.py
+|   |       test_option_b.py
+|   |       test_qualify.py
+|   |       test_set_exchange.py
+|   |       test_set_smart.py
+|   |       test_set_variations.py
+|   |       test_thailand_all_accounts.py
+|   |       test_utf8.py
+|   |       test_yf.py
+|   |       verify_criteria.py
+|   |       verify_mapping.py
+|   |       verify_pg.py
+|   |       verify_scans.py
+|   |       verify_thailand_account_settings.py
+|   |       
+|   \---__pycache__
+|           config.cpython-311.pyc
+|           
++---scripts
++---server
+\---shared

@@ -33,7 +33,7 @@ def screen_universe(universe, criteria):
                 # Small sleep to allow IBKR to clear the connection
                 time.sleep(1)
             except Exception as e:
-                print(f"  ⚠️ Scanner Option B failed for {loc}: {e}")
+                print(f"  Warning: Scanner Option B failed for {loc}: {e}")
                 time.sleep(2)
 
         # If we found "Hot" tickers, we prioritize them for a deep scan
@@ -44,20 +44,20 @@ def screen_universe(universe, criteria):
             unique_hot = list(set(hot_tickers))
             results = ib_bulk.get_market_data(unique_hot, criteria)
             if results:
-                print(f"✅ Option B successful: {len(results)} confirmed catches.")
+                print(f"Option B successful: {len(results)} confirmed catches.")
                 return results
         else:
-            print("ℹ️ Option B (Scanner) found no tickers.")
+            print("Option B (Scanner) found no tickers.")
 
     # 2. Option A Fallback: Bulk Scan on the full Universe (Reliable & Thorough)
     if DATA_SOURCE in ['ibkr', 'auto']:
-        print("⚙️ Option B gave no results. Attempting Option A (Bulk Historical Scan on full universe)...")
+        print("Option B gave no results. Attempting Option A (Bulk Historical Scan on full universe)...")
         ib_bulk = IBKRProvider(IBKR_CONFIG['host'], IBKR_CONFIG['port'], IBKR_CONFIG['client_id'])
         results = ib_bulk.get_market_data(universe, criteria)
         if results:
             return results
 
     # 3. Last Resort: yfinance
-    print("🐌 Final Fallback: Standard Scan (yfinance)...")
+    print("Final Fallback: Standard Scan (yfinance)...")
     provider = YFinanceProvider()
     return provider.get_market_data(universe, criteria)

@@ -12,8 +12,8 @@ from alerts.telegram import send_alerts
 
 def daily_scan():
     """Main execution loop"""
-    print(f"\n🕐 {datetime.now()} | Global Macro Scan")
-    print(f"🎯 RVOL ≥{CRITERIA['min_rvol']}x OR Vol ≥{CRITERIA['min_volume']:,}, ≤{CRITERIA['price_52w_low_pct']*100:.0f}% from 52w low")
+    print(f"\n{datetime.now()} | Global Macro Scan")
+    print(f"Target: RVOL >={CRITERIA['min_rvol']}x OR Volume >={CRITERIA['min_volume']:,}, within {CRITERIA['price_52w_low_pct']*100:.0f}% of 52w low")
     
     # Build universe + screen
     universe = get_universe(MARKETS)
@@ -24,13 +24,13 @@ def daily_scan():
     if catches and not TEST_MODE:
         send_alerts(catches)
     
-    print(f"✅ Scan complete: {len(catches)} catches")
+    print(f"Scan complete: {len(catches)} catches")
     return catches
 
 if __name__ == '__main__':
-    print("🚀 Global Macro Scanner v1.0")
-    print(f"📱 Telegram: {'✅' if TELEGRAM['token'] else '❌'}")
-    print(f"🔍 TEST_MODE: {TEST_MODE}")
+    print("Global Macro Scanner v1.0")
+    print(f"Telegram: {'Enabled' if TELEGRAM['token'] else 'Disabled'}")
+    print(f"TEST_MODE: {TEST_MODE}")
     
     # Single run or scheduler
     if TEST_MODE:
