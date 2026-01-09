@@ -3,14 +3,14 @@
 # 1. Market Activation (Toggle Markets On/Off)
 MARKETS = {
     'nse': True,                        # India NSE (.NS)
-    'idx': True,                        # Indonesia IDX (.JK)  
+    'idx': True,                        # Indonesia IDX (.JK) - YFinance only (IBKR not supported)
     'set': True,                        # Thailand SET (.BK) - YFinance only (IBKR not supported)
     'tsx': True,                        # Canada TSX (.TO)
     'cme_futures': False                # CME ES=F, NQ=F (In Progress)
 }
 
-# NOTE: Thailand SET exchange is not available via IBKR (even with delayed data).
-# .BK stocks are automatically routed to YFinance fallback for all data requests.
+# NOTE: Thailand SET and Indonesia IDX exchanges are not available via IBKR (even with delayed data).
+# .BK and .JK stocks are automatically routed to YFinance fallback for all data requests.
 
 # 2. Market Registry (Classification & Mapping)
 # Defines scanning thresholds for "Major" vs "Emerging" markets

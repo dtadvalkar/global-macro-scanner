@@ -116,9 +116,10 @@ class IBKRProvider(BaseProvider):
                 currency = 'INR'
                 pure_symbol = symbol[:-3]
             elif symbol.endswith('.JK'):
-                exchange = 'IDX' 
-                currency = 'IDR'
-                pure_symbol = symbol[:-3]
+                # Indonesia IDX not supported by IBKR - skip to YFinance fallback
+                # Tested: IDX exchange code fails with "Invalid destination or exchange"
+                # Error: "The destination or exchange selected is Invalid"
+                return None
             elif symbol.endswith('.BK'):
                 # Thailand SET not supported by IBKR - skip to YFinance fallback
                 # Tested: SMART routing, primaryExchange, direct SET all fail
