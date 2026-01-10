@@ -1,4 +1,4 @@
-from ib_insync import *
+from ib_async import *
 import pandas as pd
 import math
 import asyncio
@@ -58,8 +58,13 @@ async def process_stock(ib, contract, full_symbol, criteria):
             return None
         
         # Request 1 year of daily bars
+        # For delayed data (Type 3), limit to 16 minutes ago to avoid permission issues
+        from datetime import datetime, timedelta
+        end_time = datetime.utcnow() - timedelta(minutes=16)
+        end_datetime_str = end_time.strftime('%Y%m%d %H:%M:%S')
+
         bars = await ib.reqHistoricalDataAsync(
-            contract, endDateTime='', durationStr='1 Y',
+            contract, endDateTime=end_datetime_str, durationStr='1 Y',
             barSizeSetting='1 day', whatToShow='MIDPOINT', useRTH=True
         )
         

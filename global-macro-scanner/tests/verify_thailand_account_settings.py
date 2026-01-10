@@ -4,7 +4,7 @@ Verify Thailand SET Access - Account Settings & Permissions Check
 The user is correct that IBKR should support delayed data for global markets.
 This script checks if Thailand access needs to be enabled in account settings.
 """
-from ib_insync import *
+from ib_async import *
 import asyncio
 from datetime import datetime
 

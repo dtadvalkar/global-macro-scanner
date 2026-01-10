@@ -57,7 +57,7 @@ All criteria are centrally managed in `config/criteria.py`. Current active filte
 
 1. **Python 3.8+** with required packages:
    ```bash
-   pip install yfinance ib_insync psycopg2-binary python-dotenv financedatabase pandas numpy
+   pip install yfinance ib_async psycopg2-binary python-dotenv financedatabase pandas numpy
    ```
 
 2. **PostgreSQL database** for ticker caching (optional but recommended)

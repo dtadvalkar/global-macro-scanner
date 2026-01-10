@@ -15,8 +15,8 @@ def migrate_file(file_path):
     original_content = content
 
     # Replace imports
-    content = re.sub(r'from ib_insync import', 'from ib_async import', content)
-    content = re.sub(r'import ib_insync', 'import ib_async', content)
+    content = re.sub(r'from ib_async import', 'from ib_async import', content)
+    content = re.sub(r'import ib_async', 'import ib_async', content)
     content = re.sub(r'ib_insync\.', 'ib_async.', content)
 
     if content != original_content:
@@ -29,8 +29,8 @@ def migrate_file(file_path):
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
 
-        print(f"✅ Migrated: {file_path}")
-        print(f"📁 Backup: {backup_path}")
+        print(f"Migrated: {file_path}")
+        print(f"Backup: {backup_path}")
         return True
 
     return False
@@ -52,15 +52,15 @@ def main():
                 except:
                     continue
 
-    print(f"📁 Found {len(files_to_migrate)} files to migrate")
+    print(f"Found {len(files_to_migrate)} files to migrate")
 
     migrated_count = 0
     for file_path in files_to_migrate:
         if migrate_file(file_path):
             migrated_count += 1
 
-    print(f"\n🎉 Migration complete: {migrated_count} files migrated")
-    print("\n📋 Next steps:")
+    print(f"\nMigration complete: {migrated_count} files migrated")
+    print("\nNext steps:")
     print("1. Run tests to verify functionality")
     print("2. Test IBKR connection")
     print("3. Test market data access")

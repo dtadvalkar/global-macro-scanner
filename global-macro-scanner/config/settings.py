@@ -19,7 +19,9 @@ DATA_SOURCE = os.getenv("DATA_SOURCE", "auto") # options: 'ibkr', 'yfinance', 'a
 IBKR_CONFIG = {
     'host': os.getenv("IBKR_HOST", "127.0.0.1"),
     'port': int(os.getenv("IBKR_PORT", "7497")), # 7497 = Paper, 7496 = Live
-    'client_id': int(os.getenv("IBKR_CLIENT_ID", "55"))
+    'client_id': int(os.getenv("IBKR_CLIENT_ID", "55")),
+    # Data Type: Type 3 (Delayed) - Primary for ALL markets
+    # Provides global delayed data access without rate limiting
 }
 
 # 3. ALERTS

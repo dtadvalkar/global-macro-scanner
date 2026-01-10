@@ -3,7 +3,7 @@
 Test Thailand SET Access on ALL IBKR Accounts
 If you have multiple accounts (e.g., margin and RRSP), this tests each one separately.
 """
-from ib_insync import *
+from ib_async import *
 import asyncio
 from datetime import datetime
 

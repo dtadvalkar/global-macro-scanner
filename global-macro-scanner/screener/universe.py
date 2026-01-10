@@ -9,10 +9,17 @@ def get_universe(markets):
     universe = []
     
     mapping = {
-        'nse': ('NSE', 'NSE'),
-        'idx': ('JKT', 'IDX'),
-        'set': ('SET', 'SET'),
-        'tsx': ('TOR', 'TSX')
+        # IBKR Supported Markets
+        'nse': ('NSE', 'NSE'),           # India NSE (.NS)
+        'tsx': ('TOR', 'TSE'),           # Canada TSE (.TO) - Fixed: TSE not TSX
+        'asx': ('ASX', 'ASX'),           # Australia ASX (.AX)
+        'sgx': ('SGX', 'SGX'),           # Singapore SGX (.SI)
+        'xetra': ('GER', 'XETRA'),       # Germany XETRA (.DE)
+        'sbf': ('FRA', 'SBF'),           # France Euronext (.PA)
+
+        # YFinance Only Markets
+        'idx': ('JKT', 'IDX'),           # Indonesia IDX (.JK)
+        'set': ('SET', 'SET')            # Thailand SET (.BK)
     }
     
     for m_key, (fd_key, db_key) in mapping.items():
@@ -33,10 +40,17 @@ def get_universe(markets):
             selection = equities.search(exchange=fd_key)
             
             suffix = {
-                'NSE': '.NS',
-                'IDX': '.JK',
-                'SET': '.BK',
-                'TSX': '.TO'
+                # IBKR Supported Markets
+                'NSE': '.NS',           # India
+                'TSE': '.TO',           # Canada
+                'ASX': '.AX',           # Australia
+                'SGX': '.SI',           # Singapore
+                'XETRA': '.DE',         # Germany
+                'SBF': '.PA',           # France
+
+                # YFinance Only Markets
+                'IDX': '.JK',           # Indonesia
+                'SET': '.BK'            # Thailand
             }.get(db_key, '')
             
             tickers = [f"{s}{suffix}" if not s.endswith(suffix) else s for s in selection.index]

@@ -24,7 +24,7 @@ def analyze_current_usage():
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                if 'from ib_insync import' in content or 'import ib_insync' in content:
+                if 'from ib_async import' in content or 'import ib_async' in content:
                     ib_insync_files.append(file_path)
         except:
             continue
@@ -45,8 +45,8 @@ def create_migration_plan():
     migration_steps = [
         "1. Backup current working code",
         "2. Update import statements:",
-        "   from ib_insync import * -> from ib_async import *",
-        "   import ib_insync -> import ib_async",
+        "   from ib_async import * -> from ib_async import *",
+        "   import ib_async -> import ib_async",
         "3. Test basic connectivity with ib_async",
         "4. Test market data access (US, India, Australia, Singapore)",
         "5. Test contract qualification",
@@ -134,8 +134,8 @@ def migrate_file(file_path):
     original_content = content
 
     # Replace imports
-    content = re.sub(r'from ib_insync import', 'from ib_async import', content)
-    content = re.sub(r'import ib_insync', 'import ib_async', content)
+    content = re.sub(r'from ib_async import', 'from ib_async import', content)
+    content = re.sub(r'import ib_async', 'import ib_async', content)
     content = re.sub(r'ib_insync\.', 'ib_async.', content)
 
     if content != original_content:

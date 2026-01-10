@@ -3,7 +3,7 @@
 Comprehensive Thailand SET Exchange Diagnostic
 Tests all possible approaches to access Thailand stocks via IBKR
 """
-from ib_insync import *
+from ib_async import *
 import asyncio
 from datetime import datetime
 

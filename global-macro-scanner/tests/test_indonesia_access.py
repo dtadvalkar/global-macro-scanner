@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Quick test to verify Indonesia IDX access via IBKR"""
-from ib_insync import *
+from ib_async import *
 import asyncio
 import os
 from dotenv import load_dotenv
