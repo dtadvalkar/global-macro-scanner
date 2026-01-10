@@ -1,21 +1,25 @@
 # 🎣 Screening Criteria Implementation Guide
 
-## Overview
-**Part of the Master Development Plan** | See `docs/master_development_plan.md` for full project roadmap
+## 📋 DOCUMENT POSITIONING
 
-This document provides detailed implementation guidance for the stock screening criteria system, focusing on the technical indicators, filtering logic, and signal quality improvements that form the core of the Global Market Scanner's screening engine.
+### Relationship to Master Plan
+**This document is a detailed implementation guide for Task #1** of the [Master Development Plan](../master_development_plan.md).
 
-## 📋 Document Navigation
-- **[Master Development Plan](../master_development_plan.md)** - Complete project roadmap and task tracking
-- **This Document** - Screening criteria implementation details
-- **[Market Scheduling Guide](../market_scheduling_guide.md)** - Automated scanning timing
-- **[README](../README.md)** - Project overview and setup
+- **Master Plan**: Strategic roadmap, task tracking, timelines, success metrics
+- **This Document**: Technical implementation details, code architecture, testing procedures
 
-## 🎯 Current Status in Master Plan
-**Task: Enhanced Scanning Logic** ✅ **COMPLETED**
-- Technical indicators implemented and active
-- Pattern recognition integrated
-- Performance optimizations deployed
+### Current Status in Master Plan
+**Task #1: Enhanced Scanning Logic** ✅ **COMPLETED**
+- ✅ Technical indicators (RSI, MA, ATR) implemented and active
+- ✅ Pattern recognition (double bottoms, volume confirmation, breakouts) integrated
+- ✅ Performance optimizations (caching, parallel processing) deployed
+- ✅ Centralized criteria management system operational
+
+---
+
+## 🎯 IMPLEMENTATION GUIDE
+
+This document provides detailed technical guidance for the stock screening criteria system, focusing on the technical indicators, filtering logic, and signal quality improvements that form the core of the Global Market Scanner's screening engine.
 
 ## Architecture Changes (Completed)
 
@@ -24,85 +28,78 @@ This document provides detailed implementation guidance for the stock screening 
 - **After:** All criteria defined in `config/criteria.py`, applied via `screening_utils.should_pass_screening()`
 - **Benefits:** Single source of truth, easier to modify, consistent across providers
 
-### Current Active Criteria
-- ✅ Price within 1% of 52-week low
-- ✅ Volume > 100k OR RVOL > 2.0x
-- ✅ Market cap filtering (by exchange type)
-- ✅ Price range limits (min/max price)
-- ✅ Volume consistency checks (20-day average)
-- ✅ RVOL anomaly filtering
+### ✅ IMPLEMENTED CRITERIA (ACTIVE)
+**Core Filters (Always Active):**
+- ✅ Price within 1.01x of 52-week low (primary signal)
+- ✅ Volume > 100k OR RVOL > 2.0x (liquidity confirmation)
+- ✅ Market cap filtering (exchange-specific thresholds)
+- ✅ Price range limits ($1.00 - $1000.00)
 
-## Suggested Enhancements
+**Enhanced Technical Filters (Task #1 ✅ COMPLETED):**
+- ✅ RSI momentum filtering (20-45 range for oversold confirmation)
+- ✅ Moving average support (price ≤1.03x SMA50, trend context)
+- ✅ ATR volatility filtering (1.5-8% range for risk management)
+- ✅ Pattern recognition (double bottoms, volume spikes, breakouts)
+- ✅ Volume consistency checks (20-day average validation)
 
-### 1. **Price & Momentum Filters** ⭐ HIGH PRIORITY
-**Why:** Current criteria only checks proximity to 52w low, but doesn't consider:
-- How far from 52w high (avoid stocks that were never good)
-- Recent momentum (is it still falling or showing signs of recovery?)
+**Performance Optimizations (Task #2 ✅ COMPLETED):**
+- ✅ Intelligent caching (1-hour TTL, smart cache keys)
+- ✅ Parallel processing (5 concurrent requests)
+- ✅ Adaptive rate limiting (0.8 req/sec, 25% faster)
+- ✅ Early filtering to reduce API calls
 
-**Additions:**
-- `price_52w_high_pct`: Ensure stock is at least 50% below 52w high (filters out stocks that were always low)
-- `min_days_since_low`: At least 1 day since hitting low (avoids same-day noise)
-- `max_days_since_low`: Not more than 30 days since low (still "fresh" opportunity)
+## 📈 NEXT PHASE ENHANCEMENTS
 
-### 2. **Technical Indicators** ⭐ HIGH PRIORITY
-**Why:** RSI and Moving Averages add context to price action:
-- RSI helps identify oversold conditions (but not dead stocks)
-- Moving averages show trend context (avoid severe downtrends)
+### Phase 1: Immediate Improvements (Current Sprint)
+**Timeline**: Next 1-2 weeks (after IBKR permissions)
 
-**Additions:**
-- **RSI (Relative Strength Index)**: Filter for RSI 20-40 (oversold but not dead)
-- **Moving Averages**: 
-  - Price within 5% of 50-day SMA (not too far below)
-  - 50-day SMA within 10% of 200-day (avoid severe downtrends)
-- **ATR (Average True Range)**: Filter for 2-10% daily volatility (some movement potential, not extreme risk)
+#### Enhanced Volume & Risk Filters
+- `max_rvol`: Cap extreme RVOL anomalies (>20x likely data errors)
+- Enhanced days-since-low filtering (1-30 day window)
+- Improved volume consistency validation
 
-### 3. **Enhanced Volume Filters** ⭐ MEDIUM PRIORITY
-**Why:** Current volume check is basic - can be improved:
-- Check average volume over 20 days (consistency)
-- Cap extreme RVOL values (likely data errors)
+### Phase 2: Advanced Features (Back Burner - Q2 2025)
+**Status**: Deferred until MVP proves profitable
 
-**Additions:**
-- `min_avg_volume_20d`: Ensure consistent liquidity
-- `max_rvol`: Filter out extreme anomalies (>20x is likely an error)
+#### Fundamental Integration 🔮 BACK BURNER
+- Earnings quality metrics
+- Revenue growth trends
+- Institutional ownership data
+- Debt-to-equity ratios
+- Current ratio analysis
 
-### 4. **Risk Management Filters** ⭐ MEDIUM PRIORITY
-**Why:** Avoid obvious bad picks:
-- Penny stocks or extremely expensive stocks
-- OTC/pink sheet stocks (if detectable)
+#### Advanced Criteria System 🔮 BACK BURNER
+- Time-based opportunity windows
+- Sector rotation analysis
+- Correlation-based filtering
+- Market regime detection
+- Volatility clustering analysis
 
-**Additions:**
-- `min_price`: $1.00 minimum
-- `max_price`: $1000.00 maximum
-- `exclude_otc`: Skip OTC markets
-
-### 5. **Priority Scoring System** ⭐ LOW PRIORITY (Nice to Have)
-**Why:** Rank results by quality, not just pass/fail:
-- Composite score based on multiple factors
-- Helps prioritize which catches to investigate first
-
-**Scoring Factors:**
-- RVOL (30% weight)
-- Price proximity to 52w low (25% weight)
-- Absolute volume (20% weight)
-- RSI level (15% weight)
-- Recent momentum (10% weight)
+#### Priority Scoring System 🔮 BACK BURNER
+- Composite ranking by quality
+- Multi-factor scoring (RVOL, proximity, RSI, momentum)
+- Alert prioritization
 
 ## Implementation Priority
 
-### Phase 1: Quick Wins (Easy to implement)
-1. ✅ Price vs 52w high filter
-2. ✅ Enhanced volume filters (20-day avg, max RVOL)
-3. ✅ Price range filters (min/max price)
+## ✅ IMPLEMENTATION STATUS SUMMARY
 
-### Phase 2: Technical Indicators (Requires calculation)
-1. ⚠️ RSI calculation (needs historical data)
-2. ⚠️ Moving averages (SMA 50, SMA 200)
-3. ⚠️ ATR calculation
+### Master Plan Task #1: Enhanced Scanning Logic ✅ COMPLETED
+**Completion**: 100% - All technical indicators and pattern recognition implemented
 
-### Phase 3: Advanced Features
-1. 🔮 Pattern recognition
-2. 🔮 Fundamental filters (if data available)
-3. 🔮 Priority scoring system
+### Master Plan Task #2: Performance Optimizations ✅ COMPLETED
+**Completion**: 100% - Optimized provider with caching, parallel processing, and rate limiting
+
+### Next Steps (Aligned with Master Plan)
+1. **Task #3**: Wait for IBKR permissions (external dependency)
+2. **Task #4**: Test with current markets (India, Australia, Singapore)
+3. **Task #5**: Implement automated scheduling system
+4. **Task #6**: Enhance Telegram alert system
+
+### Back Burner Items (Phase 2 - Post-MVP)
+- Fundamental integration (earnings, debt ratios, etc.)
+- Advanced criteria (sector rotation, correlations)
+- Priority scoring system
 
 ## Recommended Starting Point
 
