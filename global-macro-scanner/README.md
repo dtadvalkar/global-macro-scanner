@@ -2,6 +2,21 @@
 
 A sophisticated stock screening system that identifies stocks near their 52-week lows with strong volume characteristics across multiple global markets.
 
+## 📊 Project Status
+**Development Progress: 2 of 9 Major Tasks Completed**
+
+See **[Master Development Plan](docs/master_development_plan.md)** for complete roadmap and task tracking.
+
+### ✅ Completed Features
+- **Enhanced Scanning Logic** - Technical indicators (RSI, MA, ATR) and pattern recognition
+- **Performance Optimizations** - Optimized YFinance provider with caching and parallel processing
+
+### 🚧 Next Priorities
+- IBKR market permissions (waiting for support)
+- Current markets testing (India, Australia, Singapore)
+- Automated scheduling system
+- Telegram alert enhancements
+
 ## Architecture Overview
 
 The scanner uses a centralized criteria-driven architecture:

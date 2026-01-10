@@ -1,7 +1,21 @@
-# 🎣 Fishing Criteria Improvements
+# 🎣 Screening Criteria Implementation Guide
 
 ## Overview
-This document outlines the implemented improvements to the stock screening criteria based on research from quantitative trading screeners and best practices.
+**Part of the Master Development Plan** | See `docs/master_development_plan.md` for full project roadmap
+
+This document provides detailed implementation guidance for the stock screening criteria system, focusing on the technical indicators, filtering logic, and signal quality improvements that form the core of the Global Market Scanner's screening engine.
+
+## 📋 Document Navigation
+- **[Master Development Plan](../master_development_plan.md)** - Complete project roadmap and task tracking
+- **This Document** - Screening criteria implementation details
+- **[Market Scheduling Guide](../market_scheduling_guide.md)** - Automated scanning timing
+- **[README](../README.md)** - Project overview and setup
+
+## 🎯 Current Status in Master Plan
+**Task: Enhanced Scanning Logic** ✅ **COMPLETED**
+- Technical indicators implemented and active
+- Pattern recognition integrated
+- Performance optimizations deployed
 
 ## Architecture Changes (Completed)
 
