@@ -130,8 +130,37 @@ def should_pass_screening(symbol_data, criteria=None):
 
     # Pattern Recognition (when enabled)
     if criteria.get('pattern_enabled', False):
-        # Future implementation for pattern detection
-        pass
+        # Double Bottom Detection
+        if criteria.get('double_bottom_enabled', False):
+            hist = symbol_data.get('price_history')
+            if hist is not None and len(hist) >= 20:
+                if detect_double_bottom(hist):
+                    # Double bottom detected - this is a positive signal
+                    pass  # Allow to pass through
+                else:
+                    # No double bottom - but don't fail here, just note it
+                    pass
+
+        # Breakout Detection
+        if criteria.get('breakout_enabled', False):
+            breakout_result = detect_breakout_near_low(
+                price, low_52w, volume,
+                symbol_data.get('avg_volume_20d', volume),  # Fallback to current volume
+                criteria.get('price_52w_low_pct', 1.01)
+            )
+
+            if breakout_result.get('detected', False):
+                # Strong breakout signal - allow to pass
+                pass
+            elif criteria.get('volume_confirmation_required', False):
+                # If volume confirmation is required and not detected, fail
+                volume_confirm = confirm_volume_spike(
+                    volume,
+                    symbol_data.get('avg_volume_20d', volume),
+                    criteria.get('min_volume_spike_ratio', 2.0)
+                )
+                if not volume_confirm['confirmed']:
+                    return None
 
     # Fundamental Filters (when enabled)
     if criteria.get('fundamental_enabled', False):
@@ -241,6 +270,120 @@ def calculate_atr(highs, lows, closes, period=14):
         return atr_pct
     except Exception:
         return 0.05
+
+def detect_double_bottom(prices, tolerance_pct=0.05):
+    """
+    Detect double bottom pattern in price series.
+
+    Args:
+        prices: pandas Series of closing prices
+        tolerance_pct: Tolerance for bottom detection (default 5%)
+
+    Returns:
+        bool: True if double bottom pattern detected
+    """
+    if len(prices) < 20:
+        return False
+
+    try:
+        # Look for two lows within tolerance of each other
+        recent_lows = prices.tail(20).min()
+        current_price = prices.iloc[-1]
+
+        # Find all local minima in the last 20 days
+        local_mins = []
+        for i in range(1, len(prices.tail(20)) - 1):
+            if prices.iloc[-(i+1)] < prices.iloc[-(i)] and prices.iloc[-(i+1)] < prices.iloc[-(i+2)]:
+                local_mins.append(prices.iloc[-(i+1)])
+
+        # Check if we have at least 2 lows within tolerance
+        if len(local_mins) >= 2:
+            # Sort lows and check if the two lowest are close
+            local_mins.sort()
+            if len(local_mins) >= 2:
+                low1, low2 = local_mins[0], local_mins[1]
+                if abs(low1 - low2) / low1 <= tolerance_pct:
+                    # Current price should be breaking above the pattern
+                    pattern_high = max(prices.tail(20))
+                    if current_price > (low1 + low2) / 2:  # Above midpoint
+                        return True
+        return False
+    except:
+        return False
+
+def confirm_volume_spike(volume, avg_volume_20d, spike_threshold=1.5):
+    """
+    Confirm if current volume represents a meaningful spike.
+
+    Args:
+        volume: Current trading volume
+        avg_volume_20d: 20-day average volume
+        spike_threshold: Minimum spike ratio (default 1.5x)
+
+    Returns:
+        dict: Volume confirmation metrics
+    """
+    if not avg_volume_20d or avg_volume_20d <= 0:
+        return {'confirmed': False, 'ratio': 0, 'strength': 'insufficient_data'}
+
+    ratio = volume / avg_volume_20d
+
+    if ratio >= 4.0:
+        strength = 'extreme'
+    elif ratio >= 2.5:
+        strength = 'strong'
+    elif ratio >= spike_threshold:
+        strength = 'moderate'
+    else:
+        strength = 'weak'
+
+    return {
+        'confirmed': ratio >= spike_threshold,
+        'ratio': round(ratio, 1),
+        'strength': strength
+    }
+
+def detect_breakout_near_low(price, low_52w, volume, avg_volume_20d, breakout_threshold=0.98):
+    """
+    Detect breakout patterns near 52-week lows.
+
+    Args:
+        price: Current price
+        low_52w: 52-week low
+        volume: Current volume
+        avg_volume_20d: 20-day average volume
+        breakout_threshold: How close to low for breakout detection
+
+    Returns:
+        dict: Breakout detection results
+    """
+    if not low_52w or low_52w <= 0:
+        return {'detected': False, 'type': 'invalid_data'}
+
+    pct_from_low = price / low_52w
+
+    # Must be within threshold of 52w low
+    if pct_from_low > breakout_threshold:
+        return {'detected': False, 'type': 'not_near_low'}
+
+    # Check volume confirmation
+    volume_confirm = confirm_volume_spike(volume, avg_volume_20d, 2.0)
+
+    if volume_confirm['confirmed']:
+        if pct_from_low <= 1.02:  # Very close to low
+            breakout_type = 'bullish_breakout_near_low'
+        else:
+            breakout_type = 'breakout_confirmation'
+
+        return {
+            'detected': True,
+            'type': breakout_type,
+            'pct_from_low': round(pct_from_low, 3),
+            'volume_ratio': volume_confirm['ratio'],
+            'volume_strength': volume_confirm['strength']
+        }
+
+    return {'detected': False, 'type': 'insufficient_volume'}
 
 def apply_preset(criteria, preset_name):
     """

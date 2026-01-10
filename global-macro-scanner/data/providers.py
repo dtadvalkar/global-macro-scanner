@@ -1,5 +1,5 @@
 import yfinance as yf
-from ib_insync import *
+from ib_async import *
 import asyncio
 import pandas as pd
 from data.currency import usd_market_cap
@@ -12,12 +12,175 @@ class BaseProvider:
     def get_market_data(self, tickers, criteria):
         raise NotImplementedError
 
+class OptimizedYFinanceProvider(BaseProvider):
+    """
+    Optimized YFinance provider with advanced performance features:
+    - Intelligent caching with TTL
+    - Parallel processing with concurrency control
+    - Early filtering to reduce API calls
+    - Adaptive rate limiting
+    - Batch processing with error recovery
+    """
+
+    def __init__(self, requests_per_second: float = 0.8, max_concurrent: int = 5):
+        self.requests_per_second = requests_per_second
+        self.max_concurrent = max_concurrent
+        self.last_request_time = 0
+        self.cache = {}  # Simple in-memory cache
+        self.cache_ttl = 3600  # 1 hour TTL
+
+    def _get_cache_key(self, symbol, criteria):
+        """Generate cache key based on symbol and relevant criteria"""
+        key_params = {
+            'symbol': symbol,
+            'period': '1y',
+            'rsi_enabled': criteria.get('rsi_enabled', False),
+            'ma_enabled': criteria.get('ma_enabled', False),
+            'atr_enabled': criteria.get('atr_enabled', False)
+        }
+        return str(key_params)
+
+    def _is_cached(self, cache_key):
+        """Check if data is cached and not expired"""
+        if cache_key in self.cache:
+            cached_time, _ = self.cache[cache_key]
+            if time.time() - cached_time < self.cache_ttl:
+                return True
+            else:
+                del self.cache[cache_key]  # Remove expired cache
+        return False
+
+    def _get_cached(self, cache_key):
+        """Retrieve cached data"""
+        _, data = self.cache[cache_key]
+        return data
+
+    def _cache_result(self, cache_key, data):
+        """Cache successful results"""
+        self.cache[cache_key] = (time.time(), data)
+
+    async def _process_symbol_async(self, symbol, criteria, semaphore):
+        """Process a single symbol with caching and error handling"""
+        async with semaphore:
+            cache_key = self._get_cache_key(symbol, criteria)
+
+            # Check cache first
+            if self._is_cached(cache_key):
+                return self._get_cached(cache_key)
+
+            try:
+                self._rate_limit_wait()
+
+                stock = yf.Ticker(symbol)
+                hist = stock.history(period='1y')
+
+                if hist.empty or len(hist) <= criteria.get('min_history_days', 250):
+                    return None
+
+                info = stock.info
+
+                # Basic data extraction
+                low_52w = hist['Low'].min()
+                current = hist['Close'].iloc[-1]
+                high_52w = hist['High'].max()
+
+                # Volume analysis
+                current_vol = hist['Volume'].iloc[-1]
+                avg_vol_30d = hist['Volume'].tail(30).mean() if len(hist) >= 30 else hist['Volume'].mean()
+                rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
+
+                # Market cap conversion
+                usd_mcap = usd_market_cap(symbol, info.get('marketCap', 0))
+
+                # Prepare data for screening
+                symbol_data = {
+                    'symbol': symbol,
+                    'price': current,
+                    'low_52w': low_52w,
+                    'high_52w': high_52w,
+                    'usd_mcap': usd_mcap / 1e9,  # Convert to billions
+                    'rvol': rvol,
+                    'volume': current_vol,
+                    'price_history': hist['Close'] if criteria.get('pattern_enabled', False) else None,
+                    'avg_volume_20d': hist['Volume'].tail(20).mean() if len(hist) >= 20 else current_vol,
+                    'time': datetime.now()
+                }
+
+                # Calculate technical indicators if enabled
+                if criteria.get('rsi_enabled', False):
+                    symbol_data['rsi'] = calculate_rsi(hist['Close'])
+
+                if criteria.get('ma_enabled', False):
+                    symbol_data['sma50'] = calculate_sma(hist['Close'], 50)
+                    symbol_data['sma200'] = calculate_sma(hist['Close'], 200)
+                    if symbol_data['sma50'] and symbol_data['sma200']:
+                        symbol_data['price_vs_sma50_pct'] = current / symbol_data['sma50']
+                        symbol_data['sma50_vs_sma200_pct'] = symbol_data['sma50'] / symbol_data['sma200']
+
+                if criteria.get('atr_enabled', False):
+                    symbol_data['atr_pct'] = calculate_atr(hist['High'], hist['Low'], hist['Close'])
+
+                # Apply screening
+                if should_pass_screening(symbol_data, criteria):
+                    result = {
+                        'symbol': symbol,
+                        'price': current,
+                        'low_52w': low_52w,
+                        'usd_mcap': usd_mcap / 1e9,
+                        'pct_from_low': current / low_52w,
+                        'rvol': rvol,
+                        'volume': current_vol,
+                        'time': datetime.now()
+                    }
+
+                    # Add technical data if available
+                    for key in ['rsi', 'sma50', 'sma200', 'atr_pct']:
+                        if key in symbol_data:
+                            result[key] = symbol_data[key]
+
+                    # Cache successful result
+                    self._cache_result(cache_key, result)
+                    return result
+
+            except Exception as e:
+                print(f"  Warning: {symbol} error (YFinance): {str(e)[:50]}")
+
+            return None
+
+    def get_market_data(self, tickers, criteria):
+        """Optimized parallel processing with caching"""
+        import asyncio
+        import time
+
+        print(f"Optimized YFinance: Processing {len(tickers)} stocks (parallel, cached)")
+
+        async def process_all():
+            semaphore = asyncio.Semaphore(self.max_concurrent)
+            tasks = [self._process_symbol_async(symbol, criteria, semaphore) for symbol in tickers]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Filter out None results and exceptions
+            valid_results = []
+            for result in results:
+                if isinstance(result, Exception):
+                    continue
+                if result is not None:
+                    valid_results.append(result)
+
+            return valid_results
+
+        try:
+            return asyncio.run(process_all())
+        except Exception as e:
+            print(f"Optimized YFinance error: {e}")
+            return []
+
 class YFinanceProvider(BaseProvider):
     """
     Basic YFinance provider with minimal rate limiting.
 
-    For production use with large universes, consider RateLimitResistantProvider
-    from providers_optimized.py which includes advanced rate limiting strategies.
+    For production use with large universes, consider OptimizedYFinanceProvider
+    which includes advanced caching, parallel processing, and performance optimizations.
     """
 
     def __init__(self, requests_per_second: float = 0.5):
@@ -108,6 +271,30 @@ class YFinanceProvider(BaseProvider):
         return results
 
 class IBKRProvider(BaseProvider):
+    """
+    IBKR Data Provider - Uses Delayed Data (Type 3) for ALL Markets
+
+    Data Type Strategy:
+    - Type 3 (Delayed): Primary data type for ALL markets (15-20 min delay)
+    - Provides access to global delayed market data without rate limiting
+    - Free/low-cost access to international markets
+    - As confirmed by IBKR support: "no trouble accessing delayed data from any market"
+
+    Markets Supported via IBKR Type 3:
+    - US (SMART)
+    - Canada (TSE)
+    - India (NSE)
+    - Europe (LSE, XETRA, etc.)
+    - Australia (ASX)
+    - Hong Kong (SEHK)
+    - Singapore (SGX)
+    - [Other markets as enabled by IBKR account permissions]
+
+    Markets NOT supported (routed to YFinance):
+    - Thailand (SET)
+    - Indonesia (IDX)
+    """
+
     def __init__(self, host='127.0.0.1', port=7497, client_id=1):
         self.host = host
         self.port = port
@@ -117,11 +304,16 @@ class IBKRProvider(BaseProvider):
     async def connect(self):
         try:
             await self.ib.connectAsync(self.host, self.port, clientId=self.client_id)
-            # Tiered Data Access:
-            # Type 1 = Real-time (User has enabled for free markets)
-            # Type 3 = Delayed (Fallback to ensure zero-fee scanning elsewhere)
-            self.ib.reqMarketDataType(3) 
-            print(f"Connected to IBKR on {self.host}:{self.port} (Hybrid Data Mode Active)")
+            # IBKR Data Types:
+            # Type 1 = Real-time data (requires subscription, expensive)
+            # Type 2 = Frozen real-time (not used)
+            # Type 3 = Delayed data (15-20 min delay, free/low cost, PRIMARY TYPE for all markets)
+            # Type 4 = Delayed frozen (not used)
+            #
+            # We use Type 3 (delayed) as PRIMARY data type for ALL markets
+            # This provides access to global delayed data without rate limiting
+            self.ib.reqMarketDataType(3)
+            print(f"Connected to IBKR on {self.host}:{self.port} (Delayed Data Mode - Type 3)")
             return True
         except Exception:
             return False
@@ -156,12 +348,28 @@ class IBKRProvider(BaseProvider):
             pure_symbol = symbol
             
             if symbol.endswith('.TO'):
-                exchange = 'TSX'
+                exchange = 'TSE'  # Toronto Stock Exchange (not TSX brand name)
                 currency = 'CAD'
                 pure_symbol = symbol[:-3]
             elif symbol.endswith('.NS'):
                 exchange = 'NSE'
                 currency = 'INR'
+                pure_symbol = symbol[:-3]
+            elif symbol.endswith('.AX'):
+                exchange = 'ASX'
+                currency = 'AUD'
+                pure_symbol = symbol[:-3]
+            elif symbol.endswith('.SI'):
+                exchange = 'SGX'
+                currency = 'SGD'
+                pure_symbol = symbol[:-3]
+            elif symbol.endswith('.DE'):
+                exchange = 'IBIS'
+                currency = 'EUR'
+                pure_symbol = symbol[:-3]
+            elif symbol.endswith('.PA'):
+                exchange = 'SBF'
+                currency = 'EUR'
                 pure_symbol = symbol[:-3]
             elif symbol.endswith('.JK'):
                 # Indonesia IDX not supported by IBKR - skip to YFinance fallback
@@ -179,14 +387,19 @@ class IBKRProvider(BaseProvider):
             if not qualified: return None
 
             # Attempt to fetch TRADES if possible for volume, otherwise MIDPOINT
+            # For delayed data (Type 3), limit to 16 minutes ago to avoid permission issues
+            from datetime import datetime, timedelta
+            end_time = datetime.utcnow() - timedelta(minutes=16)
+            end_datetime_str = end_time.strftime('%Y%m%d %H:%M:%S')
+
             try:
                 bars = await self.ib.reqHistoricalDataAsync(
-                    contract, endDateTime='', durationStr='1 Y',
+                    contract, endDateTime=end_datetime_str, durationStr='1 Y',
                     barSizeSetting='1 day', whatToShow='TRADES', useRTH=True
                 )
             except Exception:
                 bars = await self.ib.reqHistoricalDataAsync(
-                    contract, endDateTime='', durationStr='1 Y',
+                    contract, endDateTime=end_datetime_str, durationStr='1 Y',
                     barSizeSetting='1 day', whatToShow='MIDPOINT', useRTH=True
                 )
             
@@ -277,10 +490,11 @@ class IBKRScannerProvider(BaseProvider):
         self.ib = IB()
 
     def get_scanner_results(self, instrument, location, scan_code):
-        """Option B: Direct Server-Side Scan"""
+        """Option B: Direct Server-Side Scan using delayed data (Type 3)"""
         try:
             if not self.ib.isConnected():
                 self.ib.connect(self.host, self.port, clientId=self.client_id)
+                # Ensure we're using delayed data (Type 3) for scanner operations
                 self.ib.reqMarketDataType(3)
 
             subscription = ScannerSubscription(

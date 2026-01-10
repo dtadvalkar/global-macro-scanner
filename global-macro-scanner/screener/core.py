@@ -1,4 +1,4 @@
-from data.providers import YFinanceProvider, IBKRProvider, IBKRScannerProvider
+from data.providers import OptimizedYFinanceProvider, IBKRProvider, IBKRScannerProvider
 from config import DATA_SOURCE, IBKR_CONFIG
 import asyncio
 import time
@@ -57,7 +57,7 @@ def screen_universe(universe, criteria):
         if results:
             return results
 
-    # 3. Last Resort: yfinance
-    print("Final Fallback: Standard Scan (yfinance)...")
-    provider = YFinanceProvider()
+    # 3. Last Resort: Optimized YFinance with caching and parallel processing
+    print("Final Fallback: Optimized Scan (yfinance with caching)...")
+    provider = OptimizedYFinanceProvider()
     return provider.get_market_data(universe, criteria)

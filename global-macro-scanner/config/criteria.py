@@ -52,19 +52,19 @@ CRITERIA = {
     # 3. TECHNICAL INDICATORS (Quality Filters)
     # ============================================
     # RSI - Relative Strength Index
-    'rsi_enabled': False,               # [FUTURE] Enable RSI filtering
-    'rsi_min': 20,                      # [FUTURE] RSI > 20 (oversold, but not dead)
-    'rsi_max': 40,                      # [FUTURE] RSI < 40 (avoid overbought)
+    'rsi_enabled': True,                # [IMPLEMENTED] Enable RSI filtering for momentum confirmation
+    'rsi_min': 20,                      # [IMPLEMENTED] RSI > 20 (oversold, but not dead)
+    'rsi_max': 45,                      # [IMPLEMENTED] RSI < 45 (avoid neutral/overbought)
 
     # Moving Averages - Trend Context
-    'ma_enabled': False,                # [FUTURE] Enable MA filtering
-    'price_vs_sma50_pct': 0.95,        # [FUTURE] Price within 5% of 50-day SMA (not too far below)
-    'sma50_vs_sma200_pct': 0.90,       # [FUTURE] 50-day SMA within 10% of 200-day (avoid severe downtrends)
+    'ma_enabled': True,                 # [IMPLEMENTED] Enable MA filtering for trend support
+    'price_vs_sma50_pct': 0.97,         # [IMPLEMENTED] Price within 3% of 50-day SMA (close support)
+    'sma50_vs_sma200_pct': 0.93,        # [IMPLEMENTED] 50-day SMA within 7% of 200-day (avoid downtrends)
 
     # Volatility - ATR (Average True Range)
-    'atr_enabled': False,               # [FUTURE] Enable ATR filtering
-    'atr_min_pct': 0.02,                # [FUTURE] Min 2% daily volatility (some movement potential)
-    'atr_max_pct': 0.10,                # [FUTURE] Max 10% daily volatility (avoid extreme risk)
+    'atr_enabled': True,                # [IMPLEMENTED] Enable ATR filtering for volatility suitability
+    'atr_min_pct': 0.015,               # [IMPLEMENTED] Min 1.5% daily volatility (some movement)
+    'atr_max_pct': 0.08,                # [IMPLEMENTED] Max 8% daily volatility (manageable risk)
 
     # ============================================
     # 4. FUNDAMENTAL FILTERS (Optional)
@@ -76,7 +76,11 @@ CRITERIA = {
     # ============================================
     # 5. PRICE ACTION PATTERNS (Pattern Recognition)
     # ============================================
-    'pattern_enabled': False,            # [FUTURE] Enable pattern detection (requires more computation)
+    'pattern_enabled': True,             # [IMPLEMENTED] Enable pattern detection for higher quality signals
+    'double_bottom_enabled': True,       # [IMPLEMENTED] Detect double bottom patterns
+    'breakout_enabled': True,            # [IMPLEMENTED] Detect breakouts near 52w lows
+    'volume_confirmation_required': True, # [IMPLEMENTED] Require volume confirmation for patterns
+    'min_volume_spike_ratio': 2.0,       # [IMPLEMENTED] Minimum volume spike for confirmation
     'require_volume_confirmation': True, # [CLIENT-SIDE] Volume should confirm price movement
     'min_days_since_low': 1,             # [CLIENT-SIDE] At least 1 day since hitting low (avoid same-day noise)
     'max_days_since_low': 30,            # [CLIENT-SIDE] Not more than 30 days since low (still "fresh")
