@@ -13,7 +13,7 @@ def get_universe(markets):
         'nse': ('NSE', 'NSE'),           # India NSE (.NS)
         'tsx': ('TOR', 'TSE'),           # Canada TSE (.TO) - Fixed: TSE not TSX
         'asx': ('ASX', 'ASX'),           # Australia ASX (.AX)
-        'sgx': ('SGX', 'SGX'),           # Singapore SGX (.SI)
+        'sgx': ('SG', 'SGX'),            # Singapore SGX (.SI) - FD uses 'SG'
         'xetra': ('GER', 'XETRA'),       # Germany XETRA (.DE)
         'sbf': ('FRA', 'SBF'),           # France Euronext (.PA)
 

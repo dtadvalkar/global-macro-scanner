@@ -23,6 +23,7 @@ from scheduler.market_scheduler import create_optimal_schedule
 def scan_markets(markets_config=None):
     """
     Scan specified markets or all markets if none specified.
+    Uses optimized providers with fundamental caching for efficient filtering.
     """
     start_time = datetime.now()
 
@@ -43,7 +44,7 @@ def scan_markets(markets_config=None):
             print("No universe generated - check market configurations")
             return []
 
-        print(f"Universe: {len(universe)} stocks")
+        print(f"Initial universe: {len(universe)} stocks")
 
         # Screen universe
         catches = screen_universe(universe, CRITERIA)

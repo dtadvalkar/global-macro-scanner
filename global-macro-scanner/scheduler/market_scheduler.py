@@ -10,34 +10,57 @@ import pytz
 from typing import Dict, List, Callable
 import os
 
-# Market timezone mappings
+# Market timezone mappings - expanded for all supported markets
 MARKET_TIMEZONES = {
-    'north_america': 'US/Eastern',  # TSX, NYSE
-    'india': 'Asia/Kolkata',       # NSE
-    'indonesia': 'Asia/Jakarta',   # IDX
-    'thailand': 'Asia/Bangkok',    # SET
+    'north_america': 'US/Eastern',  # US, Canada
+    'europe': 'Europe/London',      # UK, Germany, France
+    'india': 'Asia/Kolkata',        # NSE
+    'asia_pacific': 'Asia/Tokyo',   # Japan, Australia, Singapore, Hong Kong
+    'emerging_asia': 'Asia/Bangkok' # Thailand, Indonesia
+}
+
+# Market to region mapping
+MARKET_REGIONS = {
+    'us': 'north_america',
+    'tsx': 'north_america',  # Canada
+    'uk': 'europe',
+    'germany': 'europe',
+    'france': 'europe',
+    'japan': 'asia_pacific',
+    'australia': 'asia_pacific',
+    'singapore': 'asia_pacific',
+    'hongkong': 'asia_pacific',
+    'nse': 'india',
+    'idx': 'emerging_asia',  # Indonesia
+    'set': 'emerging_asia'   # Thailand
 }
 
 # Optimal scanning windows (in market local time)
+# Times chosen to be 30-60 minutes after market open for data stabilization
 SCAN_WINDOWS = {
     'north_america': {
-        'start': '09:30',  # Market open + 1 hour (data stabilizing)
-        'end': '15:30',    # Market close - 30 min
+        'start': '09:30',  # US market open + 30 min
+        'end': '15:30',    # US market close - 30 min
         'timezone': 'US/Eastern'
     },
+    'europe': {
+        'start': '09:30',  # London open + 30 min
+        'end': '16:30',    # London close - 30 min
+        'timezone': 'Europe/London'
+    },
     'india': {
-        'start': '09:45',  # Market open + 30 min
-        'end': '15:15',    # Market close - 15 min
+        'start': '09:45',  # NSE open + 30 min
+        'end': '15:15',    # NSE close - 15 min
         'timezone': 'Asia/Kolkata'
     },
-    'indonesia': {
-        'start': '09:30',  # Market open + 30 min
-        'end': '15:30',    # Market close - 30 min
-        'timezone': 'Asia/Jakarta'
+    'asia_pacific': {
+        'start': '09:30',  # Tokyo open + 30 min (covers most APAC)
+        'end': '15:30',    # Tokyo close - 30 min
+        'timezone': 'Asia/Tokyo'
     },
-    'thailand': {
-        'start': '10:30',  # Market open + 30 min
-        'end': '16:30',    # Market close - 30 min
+    'emerging_asia': {
+        'start': '10:30',  # Bangkok open + 30 min (covers Thailand/Indonesia)
+        'end': '16:30',    # Bangkok close - 30 min
         'timezone': 'Asia/Bangkok'
     }
 }
@@ -165,38 +188,123 @@ class MarketScheduler:
         except KeyboardInterrupt:
             print("\nScheduler stopped by user.")
 
-def create_optimal_schedule(scan_function: Callable) -> MarketScheduler:
+def create_optimal_schedule(scan_function: Callable, enabled_markets: Dict = None) -> MarketScheduler:
     """
-    Create an optimal scanning schedule for all market regions.
+    Create an optimal scanning schedule for all enabled market regions.
 
     Args:
         scan_function: Function that takes a market_config parameter
+        enabled_markets: Dict of enabled markets (defaults to config.markets.MARKETS)
 
     Returns:
         MarketScheduler: Configured scheduler
     """
-
-    # Create market-specific scan functions
-    def scan_north_america():
+    if enabled_markets is None:
         from config.markets import MARKETS
-        markets = {k: v for k, v in MARKETS.items() if k in ['tsx']}  # Only North America
-        scan_function(markets)
+        enabled_markets = MARKETS
 
-    def scan_asian_emerging():
-        from config.markets import MARKETS
-        markets = {k: v for k, v in MARKETS.items() if k in ['nse', 'idx', 'set']}  # Asian emerging
-        scan_function(markets)
+    # Group markets by region
+    region_markets = {}
+    for market_key, is_enabled in enabled_markets.items():
+        if not is_enabled:
+            continue
+
+        region = MARKET_REGIONS.get(market_key)
+        if region:
+            if region not in region_markets:
+                region_markets[region] = []
+            region_markets[region].append(market_key)
 
     # Initialize scheduler
     scheduler = MarketScheduler(user_timezone='US/Mountain')  # MST
 
-    # Schedule scans
-    scheduler.schedule_market_scan('north_america', scan_north_america)
-    scheduler.schedule_market_scan('india', lambda: scan_function({'nse': True}))
-    scheduler.schedule_market_scan('indonesia', lambda: scan_function({'idx': True}))
-    scheduler.schedule_market_scan('thailand', lambda: scan_function({'set': True}))
+    # Create and schedule region-specific scan functions
+    for region, markets in region_markets.items():
+        def scan_region(region_markets=markets):
+            markets_config = {m: True for m in region_markets}
+            scan_function(markets_config)
+
+        scheduler.schedule_market_scan(region, scan_region)
 
     return scheduler
+
+def create_windows_task_scheduler_script():
+    """
+    Generate Windows Task Scheduler XML and batch file for automated scanning.
+
+    Returns:
+        tuple: (xml_content, batch_content) for Task Scheduler setup
+    """
+    import os
+
+    # Get script directory and python path
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    python_exe = os.sys.executable
+    main_script = os.path.join(script_dir, 'main_automated.py')
+
+    # Create batch file content
+    batch_content = f'''@echo off
+REM Global Market Scanner - Automated Daily Scan
+REM Generated for Windows Task Scheduler
+
+cd /d "{script_dir}"
+"{python_exe}" "{main_script}" --scheduled-scan
+
+REM Keep window open briefly to show any errors
+timeout /t 30 /nobreak > nul
+'''
+
+    # Create XML for Task Scheduler (daily at 6 AM MST)
+    xml_content = '''<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mitask">
+  <RegistrationInfo>
+    <Description>Global Market Scanner - Automated Daily Scan</Description>
+    <Author>SYSTEM</Author>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2024-01-01T13:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>true</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>''' + os.path.join(script_dir, 'scheduler', 'run_market_scanner.bat') + '''</Command>
+      <Arguments></Arguments>
+      <WorkingDirectory>''' + script_dir + '''</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>'''
+
+    return xml_content, batch_content
 
 # Example usage and testing
 def demo_scheduler():
@@ -217,9 +325,13 @@ def demo_scheduler():
 
     # Show next run times
     print("\nNext scan times:")
-    for region in ['north_america', 'india', 'indonesia', 'thailand']:
-        next_time = scheduler.get_optimal_scan_time(region)
-        print(f"  {region}: {next_time.strftime('%A %I:%M %p %Z')}")
+    regions = ['north_america', 'europe', 'india', 'asia_pacific', 'emerging_asia']
+    for region in regions:
+        try:
+            next_time = scheduler.get_optimal_scan_time(region)
+            print(f"  {region}: {next_time.strftime('%A %I:%M %p %Z')}")
+        except ValueError:
+            pass  # Skip regions not in SCAN_WINDOWS
 
     # Run in test mode (execute all scans once)
     print("\nRunning test scans...")

@@ -5,6 +5,7 @@ import pandas as pd
 from data.currency import usd_market_cap
 from datetime import datetime
 from screening.screening_utils import should_pass_screening, calculate_rsi, calculate_sma, calculate_atr
+from data.cache_manager import FundamentalCacheManager
 
 util.patchAsyncio()
 
@@ -26,55 +27,35 @@ class OptimizedYFinanceProvider(BaseProvider):
         self.requests_per_second = requests_per_second
         self.max_concurrent = max_concurrent
         self.last_request_time = 0
-        self.cache = {}  # Simple in-memory cache
-        self.cache_ttl = 3600  # 1 hour TTL
+        self.fundamentals_cache = FundamentalCacheManager(use_database=False)
+        self.failed_stocks_cache = {}  # Cache of stocks that consistently fail  # Disable DB for testing
 
-    def _get_cache_key(self, symbol, criteria):
-        """Generate cache key based on symbol and relevant criteria"""
-        key_params = {
-            'symbol': symbol,
-            'period': '1y',
-            'rsi_enabled': criteria.get('rsi_enabled', False),
-            'ma_enabled': criteria.get('ma_enabled', False),
-            'atr_enabled': criteria.get('atr_enabled', False)
-        }
-        return str(key_params)
+    def _rate_limit_wait(self):
+        """Simple rate limiting"""
+        import time
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        min_interval = 1.0 / self.requests_per_second
 
-    def _is_cached(self, cache_key):
-        """Check if data is cached and not expired"""
-        if cache_key in self.cache:
-            cached_time, _ = self.cache[cache_key]
-            if time.time() - cached_time < self.cache_ttl:
-                return True
-            else:
-                del self.cache[cache_key]  # Remove expired cache
-        return False
+        if time_since_last < min_interval:
+            time.sleep(min_interval - time_since_last)
 
-    def _get_cached(self, cache_key):
-        """Retrieve cached data"""
-        _, data = self.cache[cache_key]
-        return data
+        self.last_request_time = time.time()
 
-    def _cache_result(self, cache_key, data):
-        """Cache successful results"""
-        self.cache[cache_key] = (time.time(), data)
 
     async def _process_symbol_async(self, symbol, criteria, semaphore):
-        """Process a single symbol with caching and error handling"""
+        """Process a single symbol with technical analysis"""
         async with semaphore:
-            cache_key = self._get_cache_key(symbol, criteria)
-
-            # Check cache first
-            if self._is_cached(cache_key):
-                return self._get_cached(cache_key)
-
             try:
                 self._rate_limit_wait()
 
                 stock = yf.Ticker(symbol)
                 hist = stock.history(period='1y')
 
+                # Check for invalid/empty data (delisted stocks, etc.)
                 if hist.empty or len(hist) <= criteria.get('min_history_days', 250):
+                    # Mark as failed stock to avoid repeated processing
+                    self.failed_stocks_cache[symbol] = self.failed_stocks_cache.get(symbol, 0) + 1
                     return None
 
                 info = stock.info
@@ -138,25 +119,61 @@ class OptimizedYFinanceProvider(BaseProvider):
                         if key in symbol_data:
                             result[key] = symbol_data[key]
 
-                    # Cache successful result
-                    self._cache_result(cache_key, result)
                     return result
 
             except Exception as e:
-                print(f"  Warning: {symbol} error (YFinance): {str(e)[:50]}")
+                error_str = str(e).lower()
+                # Track failed stocks to avoid repeated processing
+                if any(keyword in error_str for keyword in ['delisted', 'not found', '404', 'no data found']):
+                    # Mark as failed stock
+                    self.failed_stocks_cache[symbol] = self.failed_stocks_cache.get(symbol, 0) + 1
+                    # Don't print warnings for known invalid stocks to reduce noise
+                    pass
+                else:
+                    # For other errors, track but still show warning
+                    self.failed_stocks_cache[symbol] = self.failed_stocks_cache.get(symbol, 0) + 1
+                    print(f"  Warning: {symbol} error (YFinance): {str(e)[:50]}")
 
             return None
 
     def get_market_data(self, tickers, criteria):
-        """Optimized parallel processing with caching"""
+        """Optimized processing with fundamental caching and early filtering"""
         import asyncio
         import time
 
-        print(f"Optimized YFinance: Processing {len(tickers)} stocks (parallel, cached)")
+        print(f"Optimized YFinance: Processing {len(tickers)} stocks with fundamental caching")
 
-        async def process_all():
+        # Phase 1: Early filtering using cached fundamentals and failed stocks
+        viable_tickers = []
+        skipped_by_fundamentals = 0
+        skipped_by_failure_cache = 0
+
+        for ticker in tickers:
+            # First check if stock is known to fail (delisted, etc.)
+            if ticker in self.failed_stocks_cache:
+                fail_count = self.failed_stocks_cache[ticker]
+                if fail_count >= 3:  # Skip after 3 failures
+                    skipped_by_failure_cache += 1
+                    continue
+
+            # Then check fundamentals
+            can_skip, reason = self.fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
+            if can_skip:
+                print(f"Skipped {ticker}: {reason}")
+                skipped_by_fundamentals += 1
+            else:
+                viable_tickers.append(ticker)
+
+        efficiency_msg = f" ({len(viable_tickers)}/{len(tickers)} viable, {skipped_by_fundamentals} fundamentals, {skipped_by_failure_cache} failed cache)"
+        print(f"Pre-filtering complete{efficiency_msg}")
+
+        if not viable_tickers:
+            return []
+
+        # Phase 2: Process viable tickers with parallel execution
+        async def process_viable():
             semaphore = asyncio.Semaphore(self.max_concurrent)
-            tasks = [self._process_symbol_async(symbol, criteria, semaphore) for symbol in tickers]
+            tasks = [self._process_symbol_async(symbol, criteria, semaphore) for symbol in viable_tickers]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Filter out None results and exceptions
@@ -170,10 +187,57 @@ class OptimizedYFinanceProvider(BaseProvider):
             return valid_results
 
         try:
-            return asyncio.run(process_all())
+            results = asyncio.run(process_viable())
+
+            # Phase 3: Update fundamentals cache with fresh data
+            self._update_fundamentals_cache(results)
+
+            print(f"Processed {len(results)} stocks, fundamentals cache updated")
+            return results
+
         except Exception as e:
-            print(f"Optimized YFinance error: {e}")
+            print(f"❌ Optimized YFinance error: {e}")
             return []
+
+    def _update_fundamentals_cache(self, results):
+        """Update fundamentals cache with data from successful scans"""
+        for result in results:
+            if 'symbol' in result and 'usd_mcap' in result:
+                ticker = result['symbol']
+                fundamentals = {
+                    'symbol': ticker.split('.')[0],
+                    'exchange': self._ticker_to_exchange(ticker),
+                    'market_cap_usd': int(result['usd_mcap'] * 1e6),  # Convert billions to full USD
+                    'sector': result.get('sector'),
+                    'industry': result.get('industry'),
+                    'currency': 'USD',  # Assuming conversion already done
+                    'country': self._exchange_to_country(self._ticker_to_exchange(ticker))
+                }
+                self.fundamentals_cache.set_fundamentals(ticker, fundamentals, 'yfinance')
+
+    def _ticker_to_exchange(self, ticker):
+        """Map ticker suffix to exchange code"""
+        if ticker.endswith('.NS'):
+            return 'NSE'
+        elif ticker.endswith('.TO'):
+            return 'TSE'
+        elif ticker.endswith('.JK'):
+            return 'IDX'
+        elif ticker.endswith('.BK'):
+            return 'SET'
+        else:
+            return 'SMART'  # US stocks
+
+    def _exchange_to_country(self, exchange):
+        """Map exchange to country"""
+        mapping = {
+            'NSE': 'India',
+            'TSE': 'Canada',
+            'IDX': 'Indonesia',
+            'SET': 'Thailand',
+            'SMART': 'United States'
+        }
+        return mapping.get(exchange, 'Unknown')
 
 class YFinanceProvider(BaseProvider):
     """
@@ -339,6 +403,11 @@ class IBKRProvider(BaseProvider):
             if self.ib.isConnected():
                 self.ib.disconnect()
                 await asyncio.sleep(0.1) # Give it a moment to clean up loops
+
+    def disconnect_sync(self):
+        """Synchronous disconnect for compatibility"""
+        if self.ib.isConnected():
+            self.ib.disconnect()
 
     async def process_stock(self, symbol, criteria):
         try:
