@@ -1,10 +1,43 @@
 from data.providers import OptimizedYFinanceProvider, IBKRProvider, IBKRScannerProvider
+from data.cache_manager import FundamentalCacheManager
 from config import DATA_SOURCE, IBKR_CONFIG
 import asyncio
 import time
 
+def prefilter_universe_by_fundamentals(universe, criteria):
+    """
+    Pre-filter universe using cached fundamentals to avoid unnecessary API calls.
+    Returns only tickers that should be scanned based on basic criteria.
+    """
+    if not universe:
+        return []
+
+    fundamentals_cache = FundamentalCacheManager()
+    viable_tickers = []
+
+    print(f"Prefiltering {len(universe)} tickers using fundamentals cache...")
+
+    for ticker in universe:
+        can_skip, reason = fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
+        if can_skip:
+            # Skip this ticker - doesn't meet basic criteria
+            continue
+        else:
+            viable_tickers.append(ticker)
+
+    efficiency = f"({len(viable_tickers)}/{len(universe)} viable)"
+    print(f"Prefiltering complete {efficiency}")
+
+    return viable_tickers
+
 def screen_universe(universe, criteria):
     """Multi-provider fishing net: Option B (Scanner) -> Option A (Bulk)"""
+
+    # Pre-filter universe using fundamentals cache to reduce API calls
+    filtered_universe = prefilter_universe_by_fundamentals(universe, criteria)
+    if not filtered_universe:
+        print("No tickers passed fundamental prefiltering")
+        return []
     
     # 1. Try Option B: IBKR Server-Side Scanner (Fast & Directed)
     if DATA_SOURCE in ['ibkr', 'auto']:
@@ -36,13 +69,19 @@ def screen_universe(universe, criteria):
                 print(f"  Warning: Scanner Option B failed for {loc}: {e}")
                 time.sleep(2)
 
-        # If we found "Hot" tickers, we prioritize them for a deep scan
+        # If we found "Hot" tickers, prioritize them for a deep scan
         if hot_tickers:
-            print(f"Running deep analysis on {len(hot_tickers)} server-side candidates...")
-            ib_bulk = IBKRProvider(IBKR_CONFIG['host'], IBKR_CONFIG['port'], IBKR_CONFIG['client_id'])
-            # We filter out any duplicates from the scanner
+            # Filter hot tickers by fundamentals too
             unique_hot = list(set(hot_tickers))
-            results = ib_bulk.get_market_data(unique_hot, criteria)
+            filtered_hot = [t for t in unique_hot if not FundamentalCacheManager().can_skip_by_fundamentals(t, criteria)[0]]
+
+            if filtered_hot:
+                print(f"Running deep analysis on {len(filtered_hot)} filtered server-side candidates...")
+                ib_bulk = IBKRProvider(IBKR_CONFIG['host'], IBKR_CONFIG['port'], IBKR_CONFIG['client_id'])
+                results = ib_bulk.get_market_data(filtered_hot, criteria)
+            else:
+                print("All hot tickers filtered out by fundamentals")
+                results = []
             if results:
                 print(f"Option B successful: {len(results)} confirmed catches.")
                 return results
@@ -53,7 +92,7 @@ def screen_universe(universe, criteria):
     if DATA_SOURCE in ['ibkr', 'auto']:
         print("Option B gave no results. Attempting Option A (Bulk Historical Scan on full universe)...")
         ib_bulk = IBKRProvider(IBKR_CONFIG['host'], IBKR_CONFIG['port'], IBKR_CONFIG['client_id'])
-        results = ib_bulk.get_market_data(universe, criteria)
+        results = ib_bulk.get_market_data(filtered_universe, criteria)
         if results:
             return results
 
