@@ -27,8 +27,8 @@ class OptimizedYFinanceProvider(BaseProvider):
         self.requests_per_second = requests_per_second
         self.max_concurrent = max_concurrent
         self.last_request_time = 0
-        self.fundamentals_cache = FundamentalCacheManager(use_database=False)
-        self.failed_stocks_cache = {}  # Cache of stocks that consistently fail  # Disable DB for testing
+        self.fundamentals_cache = FundamentalCacheManager(use_database=True)
+        self.failed_stocks_cache = {}  # Cache of stocks that consistently fail
 
     def _rate_limit_wait(self):
         """Simple rate limiting"""
@@ -364,6 +364,64 @@ class IBKRProvider(BaseProvider):
         self.port = port
         self.client_id = client_id
         self.ib = IB()
+        self.fundamentals_cache = FundamentalCacheManager(use_database=True)
+
+    def _get_exchange_from_symbol(self, symbol):
+        """Extract exchange from symbol suffix"""
+        if symbol.endswith('.NS'):
+            return 'NSE'
+        elif symbol.endswith('.TO'):
+            return 'TSE'
+        elif symbol.endswith('.AX'):
+            return 'ASX'
+        elif symbol.endswith('.SI'):
+            return 'SGX'
+        elif symbol.endswith('.DE'):
+            return 'IBIS'
+        elif symbol.endswith('.PA'):
+            return 'SBF'
+        else:
+            return 'SMART'  # US stocks
+
+    def _fetch_fundamentals_from_sources(self, symbol, exchange, currency):
+        """Fetch fundamentals from multiple data sources with rate limiting"""
+
+        # Source 1: YFinance (most comprehensive, but rate limited)
+        try:
+            import yfinance as yf
+            import time
+
+            # Add small delay to respect rate limits
+            time.sleep(0.1)
+
+            ticker_obj = yf.Ticker(symbol)
+            info = ticker_obj.info
+
+            # Check if we got valid data (not empty dict)
+            if info and isinstance(info, dict) and len(info) > 0 and 'marketCap' in info:
+                return {
+                    'symbol': symbol.split('.')[0],
+                    'exchange': self._get_exchange_from_symbol(symbol),
+                    'market_cap_usd': info.get('marketCap', 0),
+                    'sector': info.get('sector', ''),
+                    'industry': info.get('industry', ''),
+                    'currency': currency,
+                    'country': info.get('country', ''),
+                    'data_source': 'yfinance'
+                }
+        except Exception as e:
+            # YFinance failed (rate limit, network, etc.)
+            # This is expected and not an error we need to report
+            pass
+
+        # Source 2: IBKR Fundamentals (future enhancement)
+        # IBKR provides some fundamental data, but YFinance is more comprehensive
+        # Could be added here for IBKR-specific data
+
+        # Source 3: Future data sources (Alpha Vantage, Financial Modeling Prep, etc.)
+        # Can be added here as additional fallbacks
+
+        return None
 
     async def connect(self):
         try:
@@ -411,6 +469,22 @@ class IBKRProvider(BaseProvider):
 
     async def process_stock(self, symbol, criteria):
         try:
+            # Populate fundamentals data from available sources (rate-limited)
+            # Only fetch if we don't already have fundamentals cached to avoid rate limits
+            try:
+                fundamentals = self.fundamentals_cache.get_fundamentals(symbol)
+                if not fundamentals:
+                    # Try multiple data sources for fundamentals with rate limiting
+                    fundamentals_data = self._fetch_fundamentals_from_sources(symbol, exchange, currency)
+
+                    if fundamentals_data:
+                        self.fundamentals_cache.set_fundamentals(symbol, fundamentals_data)
+                        # Removed debug print to reduce output during scanning
+            except Exception as e:
+                # Fundamentals population failed, continue with price data fetching
+                # This is expected due to API rate limits, not a critical error
+                pass
+
             # Map symbol to IBKR contract
             exchange = 'SMART'
             currency = 'USD'
