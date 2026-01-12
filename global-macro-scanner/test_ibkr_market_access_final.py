@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """
 FINAL DEFINITIVE TEST: IBKR Market Data Access Confirmation
-Tests ALL potential markets to provide conclusive evidence for IBKR support calls.
+Tests IBKR market data access for specified exchanges or ALL markets if none specified.
+
+Usage:
+    python test_ibkr_market_access_final.py                    # Test all markets
+    python test_ibkr_market_access_final.py --exchanges NSE    # Test only NSE
+    python test_ibkr_market_access_final.py --exchanges NSE,SMART,ASX  # Test multiple
+
+Available exchanges: ASX, BSE, HKEX, IBIS, IDX, LSE, NSE, SBF, SEHK, SET, SGX, SMART, TSE
 """
 import asyncio
 from datetime import datetime
 import os
+import argparse
 from dotenv import load_dotenv
 from data.providers import IBKRProvider
 
@@ -59,7 +67,7 @@ class MarketAccessTester:
                 # Test historical data
                 print(f"Testing historical data retrieval...")
                 try:
-                    # For delayed data (Type 3), limit to 16 minutes ago to avoid permission issues
+                    # For delayed frozen data (Type 4), limit to 16 minutes ago to avoid permission issues
                     from datetime import timedelta
                     end_time = datetime.utcnow() - timedelta(minutes=16)
                     end_datetime_str = end_time.strftime('%Y%m%d %H:%M:%S')
@@ -194,6 +202,12 @@ class MarketAccessTester:
             print("No definitive permission issues found that require IBKR support intervention.")
 
 async def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Test IBKR market access for specific exchanges')
+    parser.add_argument('--exchanges', type=str,
+                       help='Comma-separated list of exchanges to test (e.g., NSE,SMART,ASX). If not provided, tests all exchanges.')
+    args = parser.parse_args()
+
     # Initialize tester
     tester = MarketAccessTester()
     await tester.initialize()
@@ -213,6 +227,7 @@ async def main():
         # Currently working (should confirm)
         ("US", "AAPL", "SMART", "USD"),
         ("India", "RELIANCE", "NSE", "INR"),
+        ("India BSE", "HDFCBANK", "BSE", "INR"),
 
         # Contract qualified but no historical data (permissions issue?)
         ("Canada", "RY", "TSE", "CAD"),
@@ -227,11 +242,41 @@ async def main():
         ("UK", "BP", "LSE", "GBP"),
         ("Japan", "7203", "TSE", "JPY"),
         ("Hong Kong", "0005", "SEHK", "HKD"),
+        ("Hong Kong", "0001", "HKEX", "HKD"),
 
         # Known not supported
         ("Thailand", "PTT", "SET", "THB"),
         ("Indonesia", "BBRI", "IDX", "IDR"),
     ]
+
+    # Filter markets based on command line arguments
+    if args.exchanges:
+        requested_exchanges = [e.strip().upper() for e in args.exchanges.split(',')]
+        print(f"Testing only exchanges: {', '.join(requested_exchanges)}")
+        markets_to_test = [market for market in markets_to_test if market[2].upper() in requested_exchanges]
+
+        if not markets_to_test:
+            print("No matching exchanges found. Available exchanges:")
+            all_exchanges = set(market[2] for market in [
+                ("US", "AAPL", "SMART", "USD"),
+                ("India", "RELIANCE", "NSE", "INR"),
+                ("India BSE", "HDFCBANK", "BSE", "INR"),
+                ("Canada", "RY", "TSE", "CAD"),
+                ("Germany", "BMW", "IBIS", "EUR"),
+                ("France", "MC", "SBF", "EUR"),
+                ("Australia", "CBA", "ASX", "AUD"),
+                ("Singapore", "D05", "SGX", "SGD"),
+                ("UK", "BP", "LSE", "GBP"),
+                ("Japan", "7203", "TSE", "JPY"),
+                ("Hong Kong", "0005", "SEHK", "HKD"),
+                ("Hong Kong", "0001", "HKEX", "HKD"),
+                ("Thailand", "PTT", "SET", "THB"),
+                ("Indonesia", "BBRI", "IDX", "IDR"),
+            ])
+            print(", ".join(sorted(all_exchanges)))
+            return
+    else:
+        print("Testing all exchanges...")
 
     for market_name, symbol, exchange, currency in markets_to_test:
         await tester.test_market(market_name, symbol, exchange, currency, "")

@@ -374,10 +374,10 @@ class IBKRProvider(BaseProvider):
             # Type 3 = Delayed data (15-20 min delay, free/low cost, PRIMARY TYPE for all markets)
             # Type 4 = Delayed frozen (not used)
             #
-            # We use Type 3 (delayed) as PRIMARY data type for ALL markets
-            # This provides access to global delayed data without rate limiting
-            self.ib.reqMarketDataType(3)
-            print(f"Connected to IBKR on {self.host}:{self.port} (Delayed Data Mode - Type 3)")
+            # We use Type 4 (delayed frozen) as PRIMARY data type for ALL markets
+            # This provides access to global delayed frozen data
+            self.ib.reqMarketDataType(4)
+            print(f"Connected to IBKR on {self.host}:{self.port} (Delayed Frozen Data Mode - Type 4)")
             return True
         except Exception:
             return False
