@@ -11,20 +11,23 @@ from screener.core import screen_universe
 from storage.csvlogging import log_catches
 from alerts.telegram import send_alerts
 
-def daily_scan():
+def daily_scan(markets=None):
     """Main execution loop"""
     print(f"\n{datetime.now()} | Global Macro Scan")
     print(f"Target: RVOL >={CRITERIA['min_rvol']}x OR Volume >={CRITERIA['min_volume']:,}, within {CRITERIA['price_52w_low_pct']*100:.0f}% of 52w low")
-    
+
+    # Use provided markets or default to MARKETS
+    scan_markets = markets if markets is not None else MARKETS
+
     # Build universe + screen
-    universe = get_universe(MARKETS)
+    universe = get_universe(scan_markets)
     catches = screen_universe(universe, CRITERIA)
-    
+
     # Log + alert
     log_catches(catches)
     if catches and not TEST_MODE:
         send_alerts(catches)
-    
+
     print(f"Scan complete: {len(catches)} catches")
     return catches
 
@@ -52,12 +55,6 @@ if __name__ == '__main__':
             'SET': 'set',      # Thailand SET (YFinance only)
             'IDX': 'idx',      # Indonesia IDX (YFinance only)
         }
-
-        # If NSE is requested, also disable YFinance markets
-        if 'NSE' in requested_exchanges:
-            for market_key in filtered_markets:
-                if market_key != 'nse':
-                    filtered_markets[market_key] = False
 
         # Disable all markets first
         for key in filtered_markets:
@@ -96,25 +93,12 @@ if __name__ == '__main__':
 
     # Single run or scheduler
     if TEST_MODE:
-        # Temporarily override MARKETS for this scan
-        import config
-        original_markets = config.MARKETS
-        config.MARKETS = filtered_markets
-        try:
-            daily_scan()
-        finally:
-            config.MARKETS = original_markets
+        daily_scan(filtered_markets)
     else:
         # For scheduled runs, we'd need to modify the global MARKETS
         # But for now, let's keep it simple and just run once with filtered markets
-        import config
-        original_markets = config.MARKETS
-        config.MARKETS = filtered_markets
-        try:
-            schedule.every(30).minutes.do(daily_scan)
-            daily_scan()  # First run
-            while True:
-                schedule.run_pending()
-                time.sleep(60)
-        finally:
-            config.MARKETS = original_markets
+        schedule.every(30).minutes.do(lambda: daily_scan(filtered_markets))
+        daily_scan(filtered_markets)  # First run
+        while True:
+            schedule.run_pending()
+            time.sleep(60)

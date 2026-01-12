@@ -16,7 +16,7 @@ def screen_universe(universe, criteria):
         OPTION_B_SCANS = [
             ('STK', 'STK.US.MAJOR', 'MOST_ACTIVE'),        # US Major
             ('STOCK.NA', 'STK.NA', 'MOST_ACTIVE'),        # Canada (TSE/Venture)
-            ('STOCK.HK', 'STK.HK.NSE', 'MOST_ACTIVE'),    # India (NSE)
+            # ('STOCK.HK', 'STK.HK.NSE', 'MOST_ACTIVE'),    # India (NSE) - Disabled for validated universe
         ]
         
         hot_tickers = []
