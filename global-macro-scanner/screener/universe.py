@@ -26,9 +26,25 @@ def get_universe(markets):
         if not markets.get(m_key):
             continue
             
-        # Try Cache First
+        # Check if only NSE is enabled (from --exchanges NSE parameter)
+        enabled_markets = [k for k, v in markets.items() if v]
+        nse_only = (m_key == 'nse' and len(enabled_markets) == 1 and 'nse' in enabled_markets)
+
+        if nse_only:
+            # Use verified NSE stocks when only NSE is enabled
+            verified_nse_stocks = [
+                'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'ICICIBANK.NS', 'INFY.NS',
+                'ITC.NS', 'HINDUNILVR.NS', 'AXISBANK.NS', 'LT.NS', 'MARUTI.NS',
+                'BAJFINANCE.NS', 'BAJAJ-AUTO.NS', 'WIPRO.NS', 'BHARTIARTL.NS', 'NESTLEIND.NS'
+            ]
+            universe.extend(verified_nse_stocks)
+            print(f"Using {len(verified_nse_stocks)} verified NSE stocks (IBKR-compatible)")
+            # Skip cache loading for NSE when using verified stocks
+            continue
+
+        # Try Cache First (skip for NSE when only NSE is enabled)
         cached = db.get_cached_tickers(db_key)
-        if cached:
+        if cached and not nse_only:
             print(f"Loaded {len(cached)} {db_key} tickers from PostgreSQL cache.")
             universe.extend(cached)
             continue

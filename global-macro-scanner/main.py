@@ -3,6 +3,7 @@
 import time
 from datetime import datetime
 import schedule
+import argparse
 
 from config import CRITERIA, MARKETS, TEST_MODE, TELEGRAM
 from screener.universe import get_universe
@@ -28,16 +29,92 @@ def daily_scan():
     return catches
 
 if __name__ == '__main__':
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Global Macro Scanner')
+    parser.add_argument('--exchanges', type=str,
+                       help='Comma-separated list of exchanges to scan (e.g., NSE,SMART). If not provided, scans all enabled markets.')
+    args = parser.parse_args()
+
+    # Filter markets based on command line arguments
+    filtered_markets = MARKETS.copy()
+    if args.exchanges:
+        requested_exchanges = [e.strip().upper() for e in args.exchanges.split(',')]
+        print(f"Scanning only exchanges: {', '.join(requested_exchanges)}")
+
+        # Map exchange codes to market keys (based on config/markets.py)
+        exchange_to_market_key = {
+            'NSE': 'nse',      # India NSE
+            'TSE': 'tsx',      # Canada TSE
+            'ASX': 'asx',      # Australia ASX
+            'SGX': 'sgx',      # Singapore SGX
+            'IBIS': 'xetra',   # Germany IBIS/XETRA
+            'SBF': 'sbf',      # France SBF
+            'SET': 'set',      # Thailand SET (YFinance only)
+            'IDX': 'idx',      # Indonesia IDX (YFinance only)
+        }
+
+        # If NSE is requested, also disable YFinance markets
+        if 'NSE' in requested_exchanges:
+            for market_key in filtered_markets:
+                if market_key != 'nse':
+                    filtered_markets[market_key] = False
+
+        # Disable all markets first
+        for key in filtered_markets:
+            filtered_markets[key] = False
+
+        # Enable only requested markets
+        enabled_count = 0
+        unsupported_exchanges = []
+        for exchange in requested_exchanges:
+            market_key = exchange_to_market_key.get(exchange.upper())
+            if market_key and market_key in filtered_markets:
+                filtered_markets[market_key] = True
+                enabled_count += 1
+            else:
+                unsupported_exchanges.append(exchange)
+
+        if unsupported_exchanges:
+            print(f"Warning: These exchanges are not supported or not configured: {', '.join(unsupported_exchanges)}")
+            print("Available exchanges: NSE, TSE, ASX, SGX, IBIS, SBF, SET, IDX")
+
+        if enabled_count == 0:
+            print("No valid exchanges found. Available exchanges:")
+            available_exchanges = sorted(exchange_to_market_key.keys())
+            print(", ".join(available_exchanges))
+            exit(1)
+    else:
+        enabled_exchanges = [k.upper() for k, v in filtered_markets.items() if v]
+        if enabled_exchanges:
+            print(f"Scanning all enabled markets: {', '.join(enabled_exchanges)}")
+        else:
+            print("No markets are currently enabled in config/markets.py")
+
     print("Global Macro Scanner v1.0")
     print(f"Telegram: {'Enabled' if TELEGRAM['token'] else 'Disabled'}")
     print(f"TEST_MODE: {TEST_MODE}")
-    
+
     # Single run or scheduler
     if TEST_MODE:
-        daily_scan()
+        # Temporarily override MARKETS for this scan
+        import config
+        original_markets = config.MARKETS
+        config.MARKETS = filtered_markets
+        try:
+            daily_scan()
+        finally:
+            config.MARKETS = original_markets
     else:
-        schedule.every(30).minutes.do(daily_scan)
-        daily_scan()  # First run
-        while True:
-            schedule.run_pending()
-            time.sleep(60)
+        # For scheduled runs, we'd need to modify the global MARKETS
+        # But for now, let's keep it simple and just run once with filtered markets
+        import config
+        original_markets = config.MARKETS
+        config.MARKETS = filtered_markets
+        try:
+            schedule.every(30).minutes.do(daily_scan)
+            daily_scan()  # First run
+            while True:
+                schedule.run_pending()
+                time.sleep(60)
+        finally:
+            config.MARKETS = original_markets
