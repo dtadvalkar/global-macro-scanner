@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Deep dive: Find the actual IBKR exchange code for Thailand stocks"""
-from ib_insync import *
+from ib_async import *
 import asyncio
 
 async def find_thailand_exchange():

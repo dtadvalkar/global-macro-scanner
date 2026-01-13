@@ -1,4 +1,4 @@
-from ib_insync import *
+from ib_async import *
 
 def test_delayed_tsx():
     ib = IB()

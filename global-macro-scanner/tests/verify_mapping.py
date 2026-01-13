@@ -1,4 +1,4 @@
-from ib_insync import *
+from ib_async import *
 from data.providers import IBKRProvider
 import asyncio
 import os

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Find all PTT contracts and save to file"""
-from ib_insync import *
+from ib_async import *
 import asyncio
 
 async def find_ptt_contracts():

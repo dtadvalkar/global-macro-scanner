@@ -178,14 +178,27 @@ class FundamentalCacheManager:
         return None
 
     def set_fundamentals(self, ticker, fundamentals_dict, data_source='yfinance'):
-        """Store or update fundamental data"""
+        """Store or update fundamental data for a single ticker"""
         try:
             conn = psycopg2.connect(**self.db_config)
             cur = conn.cursor()
 
             # Prepare data
             symbol = fundamentals_dict.get('symbol', ticker.split('.')[0])
-            exchange = fundamentals_dict.get('exchange', 'SMART')
+            
+            # Smart Exchange Derivation: Avoid defaulting to 'SMART' for international markets
+            exchange = fundamentals_dict.get('exchange')
+            if not exchange:
+                if '.NS' in ticker: exchange = 'NSE'
+                elif '.TO' in ticker: exchange = 'TSE'
+                elif '.AX' in ticker: exchange = 'ASX'
+                elif '.SI' in ticker: exchange = 'SGX'
+                elif '.DE' in ticker: exchange = 'IBIS'
+                elif '.PA' in ticker: exchange = 'SBF'
+                elif '.JK' in ticker: exchange = 'IDX'
+                elif '.BK' in ticker: exchange = 'SET'
+                else: exchange = 'SMART' # Default to SMART for US/Unknown
+            
             market_cap = fundamentals_dict.get('market_cap_usd')
             sector = fundamentals_dict.get('sector')
             industry = fundamentals_dict.get('industry')
@@ -226,10 +239,81 @@ class FundamentalCacheManager:
             fundamentals_dict['last_updated'] = datetime.now()
             self.memory_cache[ticker] = fundamentals_dict
 
-            print(f"Updated fundamentals for {ticker}")
-
         except Exception as e:
             print(f"Error storing fundamentals for {ticker}: {e}")
+
+    def set_fundamentals_batch(self, fundamentals_list, data_source='yfinance'):
+        """Store or update multiple fundamental records at once"""
+        if not fundamentals_list:
+            return
+
+        try:
+            from datetime import datetime
+            conn = psycopg2.connect(**self.db_config)
+            cur = conn.cursor()
+
+            # Prepare data for batch insert
+            batch_data = []
+            for item in fundamentals_list:
+                ticker = item['ticker']
+                symbol = item.get('symbol', ticker.split('.')[0])
+                exchange = item.get('exchange', 'SMART')
+                market_cap = item.get('market_cap_usd')
+                sector = item.get('sector')
+                industry = item.get('industry')
+                currency = item.get('currency', 'USD')
+                country = item.get('country')
+                is_active = item.get('is_active', True)
+                metadata = item.get('metadata', {})
+
+                batch_data.append((
+                    ticker, symbol, exchange, market_cap, sector, industry,
+                    currency, country, data_source, is_active, json.dumps(metadata),
+                    datetime.now()
+                ))
+
+            # Bulk insert using execute_values
+            from psycopg2.extras import execute_values
+            try:
+                execute_values(
+                    cur,
+                    """
+                    INSERT INTO stock_fundamentals
+                    (ticker, symbol, exchange, market_cap_usd, sector, industry,
+                     currency, country, data_source, is_active, metadata, last_updated)
+                    VALUES %s
+                    ON CONFLICT (ticker)
+                    DO UPDATE SET
+                        symbol = EXCLUDED.symbol,
+                        exchange = EXCLUDED.exchange,
+                        market_cap_usd = EXCLUDED.market_cap_usd,
+                        sector = EXCLUDED.sector,
+                        industry = EXCLUDED.industry,
+                        currency = EXCLUDED.currency,
+                        country = EXCLUDED.country,
+                        data_source = EXCLUDED.data_source,
+                        is_active = EXCLUDED.is_active,
+                        metadata = EXCLUDED.metadata,
+                        last_updated = CURRENT_TIMESTAMP
+                    """,
+                    batch_data
+                )
+            except Exception as batch_error:
+                print(f"DEBUG: Batch insert failed ({batch_error}).")
+                # Removed experimental fallback to avoid more errors; just raise and trace.
+                raise batch_error
+
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            # Clear memory cache to ensure fresh data
+            self.memory_cache.clear()
+
+        except Exception as e:
+            import traceback
+            print(f"Error storing batch fundamentals: {e}")
+            traceback.print_exc()
 
     # ==================== BULK OPERATIONS ====================
 

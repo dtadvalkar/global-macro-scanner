@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Check IBKR account permissions for Thailand"""
-from ib_insync import *
+from ib_async import *
 import asyncio
 
 async def check_account_permissions():

@@ -1,5 +1,6 @@
 # ⚙️ TECHNICAL SETTINGS (Keys, DB, API)
 import os
+import random
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,8 +19,8 @@ DATA_SOURCE = os.getenv("DATA_SOURCE", "auto") # options: 'ibkr', 'yfinance', 'a
 
 IBKR_CONFIG = {
     'host': os.getenv("IBKR_HOST", "127.0.0.1"),
-    'port': int(os.getenv("IBKR_PORT", "7497")), # 7497 = Paper, 7496 = Live
-    'client_id': int(os.getenv("IBKR_CLIENT_ID", "106")),
+    'port': int(os.getenv("IBKR_PORT", "7496")), # 7497 = Paper, 7496 = Live
+    'client_id': int(os.getenv("IBKR_CLIENT_ID", str(random.randint(1000, 9999)))),
     # Data Type: Type 3 (Delayed) - Primary for ALL markets
     # Provides global delayed data access without rate limiting
 }
@@ -33,3 +34,4 @@ TELEGRAM = {
 # 4. RUNTIME
 TEST_MODE = False                       # Console debugging
 SCAN_INTERVAL_MINUTES = 30              # Production frequency
+ENABLE_FALLBACKS = False                # Use YFinance fallbacks for missing data (Slower)

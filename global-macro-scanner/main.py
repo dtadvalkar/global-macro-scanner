@@ -5,7 +5,7 @@ from datetime import datetime
 import schedule
 import argparse
 
-from config import CRITERIA, MARKETS, TEST_MODE, TELEGRAM
+from config import CRITERIA, MARKETS, TELEGRAM
 from screener.universe import get_universe
 from screener.core import screen_universe
 from storage.csvlogging import log_catches
@@ -21,7 +21,7 @@ def daily_scan(markets=None):
 
     # Build universe + screen
     universe = get_universe(scan_markets)
-    catches = screen_universe(universe, CRITERIA)
+    catches = screen_universe(universe, CRITERIA, scan_markets)
 
     # Log + alert
     log_catches(catches)
@@ -36,6 +36,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Global Macro Scanner')
     parser.add_argument('--exchanges', type=str,
                        help='Comma-separated list of exchanges to scan (e.g., NSE,SMART). If not provided, scans all enabled markets.')
+    parser.add_argument('--mode', type=str, choices=['test', 'live'], default='test',
+                       help='Run mode: test (single run) or live (scheduled, full universe). Default: test')
     args = parser.parse_args()
 
     # Filter markets based on command line arguments
@@ -89,16 +91,28 @@ if __name__ == '__main__':
 
     print("Global Macro Scanner v1.0")
     print(f"Telegram: {'Enabled' if TELEGRAM['token'] else 'Disabled'}")
-    print(f"TEST_MODE: {TEST_MODE}")
+    print(f"Telegram: {'Enabled' if TELEGRAM['token'] else 'Disabled'}")
+    
+    # Determine mode from args OR default to 'test'
+    # Default is 'test' if --mode not specified
+    if args.mode:
+        current_mode = args.mode.lower()
+    else:
+        current_mode = 'test' 
 
-    # Single run or scheduler
-    if TEST_MODE:
+    # Set global TEST_MODE used by other modules/logic if necessary
+    # (Though we should pass it down, but for now we follow existing pattern)
+    import config
+    if current_mode == 'test':
+        config.TEST_MODE = True
+        print("MODE: TEST (Fast scan, limited universe)")
         daily_scan(filtered_markets)
     else:
-        # For scheduled runs, we'd need to modify the global MARKETS
-        # But for now, let's keep it simple and just run once with filtered markets
-        schedule.every(30).minutes.do(lambda: daily_scan(filtered_markets))
+        config.TEST_MODE = False
+        print("MODE: LIVE (Scheduled, full universe)")
+        # For scheduled runs - DISABLED TEMPORARILY
+        # schedule.every(30).minutes.do(lambda: daily_scan(filtered_markets))
         daily_scan(filtered_markets)  # First run
-        while True:
-            schedule.run_pending()
-            time.sleep(60)
+        # while True:
+        #     schedule.run_pending()
+        #     time.sleep(60)

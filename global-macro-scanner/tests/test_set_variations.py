@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Test more Thailand SET exchange variations"""
-from ib_insync import *
+from ib_async import *
 import asyncio
 
 async def test_set_variations():

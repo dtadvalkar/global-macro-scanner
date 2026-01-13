@@ -1,4 +1,4 @@
-from ib_insync import *
+from ib_async import *
 import math
 
 def test_connection():

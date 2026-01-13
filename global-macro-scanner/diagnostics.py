@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from ib_insync import IB
+from ib_async import IB
 import psycopg2
 import requests
 

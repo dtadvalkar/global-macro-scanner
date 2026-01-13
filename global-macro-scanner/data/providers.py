@@ -6,6 +6,7 @@ from data.currency import usd_market_cap
 from datetime import datetime
 from screening.screening_utils import should_pass_screening, calculate_rsi, calculate_sma, calculate_atr
 from data.cache_manager import FundamentalCacheManager
+from storage.database import DatabaseManager
 
 util.patchAsyncio()
 
@@ -28,6 +29,7 @@ class OptimizedYFinanceProvider(BaseProvider):
         self.max_concurrent = max_concurrent
         self.last_request_time = 0
         self.fundamentals_cache = FundamentalCacheManager(use_database=True)
+        self.db = DatabaseManager()
         self.failed_stocks_cache = {}  # Cache of stocks that consistently fail
 
     def _rate_limit_wait(self):
@@ -124,10 +126,12 @@ class OptimizedYFinanceProvider(BaseProvider):
             except Exception as e:
                 error_str = str(e).lower()
                 # Track failed stocks to avoid repeated processing
+                # Mark as persistent failure in DB if critical error
                 if any(keyword in error_str for keyword in ['delisted', 'not found', '404', 'no data found']):
-                    # Mark as failed stock
+                    # Update DB to mark as inactive in BOTH tables (Fundamentals and Tickers)
+                    self.fundamentals_cache.set_fundamentals(symbol, {'is_active': False}, 'error_handler')
+                    self.db.update_ticker_status(symbol, 'INACTIVE', f"YFinance Error: {str(e)[:50]}")
                     self.failed_stocks_cache[symbol] = self.failed_stocks_cache.get(symbol, 0) + 1
-                    # Don't print warnings for known invalid stocks to reduce noise
                     pass
                 else:
                     # For other errors, track but still show warning
@@ -365,6 +369,7 @@ class IBKRProvider(BaseProvider):
         self.client_id = client_id
         self.ib = IB()
         self.fundamentals_cache = FundamentalCacheManager(use_database=True)
+        self.db = DatabaseManager()
 
     def _get_exchange_from_symbol(self, symbol):
         """Extract exchange from symbol suffix"""
@@ -432,10 +437,10 @@ class IBKRProvider(BaseProvider):
             # Type 3 = Delayed data (15-20 min delay, free/low cost, PRIMARY TYPE for all markets)
             # Type 4 = Delayed frozen (not used)
             #
-            # We use Type 4 (delayed frozen) as PRIMARY data type for ALL markets
-            # This provides access to global delayed frozen data
-            self.ib.reqMarketDataType(4)
-            print(f"Connected to IBKR on {self.host}:{self.port} (Delayed Frozen Data Mode - Type 4)")
+            # We use Type 3 (Delayed) as PRIMARY data type for ALL markets to ensure NSE access
+            # This provides access to global delayed data
+            self.ib.reqMarketDataType(3)
+            print(f"Connected to IBKR on {self.host}:{self.port} (Delayed Data Mode - Type 3)")
             return True
         except Exception:
             return False
@@ -449,6 +454,29 @@ class IBKRProvider(BaseProvider):
             
             print(f"IBKR Parallel Scan: {len(tickers)} stocks...")
             results = []
+            
+            # Phase 1: Pre-Filtering (Optimization)
+            # Filter out stocks that are known to be inactive or small cap based on DB cache
+            print(f"  Pre-filtering {len(tickers)} stocks using local database...")
+            viable_tickers = []
+            skipped_count = 0
+            
+            for ticker in tickers:
+                can_skip, reason = self.fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
+                if can_skip:
+                    skipped_count += 1
+                else:
+                    viable_tickers.append(ticker)
+            
+            if skipped_count > 0:
+                print(f"  Skipped {skipped_count} stocks (cached fundamentals). Processing {len(viable_tickers)} stocks...")
+            else:
+                print(f"  No stocks skipped. Processing {len(viable_tickers)} stocks...")
+            
+            if not viable_tickers:
+                return []
+
+            tickers = viable_tickers
             batch_size = 50
             for i in range(0, len(tickers), batch_size):
                 batch = tickers[i:i + batch_size]
@@ -469,23 +497,7 @@ class IBKRProvider(BaseProvider):
 
     async def process_stock(self, symbol, criteria):
         try:
-            # Populate fundamentals data from available sources (rate-limited)
-            # Only fetch if we don't already have fundamentals cached to avoid rate limits
-            try:
-                fundamentals = self.fundamentals_cache.get_fundamentals(symbol)
-                if not fundamentals:
-                    # Try multiple data sources for fundamentals with rate limiting
-                    fundamentals_data = self._fetch_fundamentals_from_sources(symbol, exchange, currency)
-
-                    if fundamentals_data:
-                        self.fundamentals_cache.set_fundamentals(symbol, fundamentals_data)
-                        # Removed debug print to reduce output during scanning
-            except Exception as e:
-                # Fundamentals population failed, continue with price data fetching
-                # This is expected due to API rate limits, not a critical error
-                pass
-
-            # Map symbol to IBKR contract
+            # 1. Map symbol to IBKR contract (Move this higher to fix scoping bug)
             exchange = 'SMART'
             currency = 'USD'
             pure_symbol = symbol
@@ -516,18 +528,40 @@ class IBKRProvider(BaseProvider):
                 pure_symbol = symbol[:-3]
             elif symbol.endswith('.JK'):
                 # Indonesia IDX not supported by IBKR - skip to YFinance fallback
-                # Tested: IDX exchange code fails with "Invalid destination or exchange"
-                # Error: "The destination or exchange selected is Invalid"
+                self.fundamentals_cache.set_fundamentals(symbol, {'is_active': False, 'exchange': 'IDX'}, 'ibkr_validation')
                 return None
             elif symbol.endswith('.BK'):
                 # Thailand SET not supported by IBKR - skip to YFinance fallback
-                # Tested: SMART routing, primaryExchange, direct SET all fail
-                # Error: "The destination or exchange selected is Invalid"
+                self.fundamentals_cache.set_fundamentals(symbol, {'is_active': False, 'exchange': 'SET'}, 'ibkr_validation')
                 return None
+
+            # 2. Get fundamentals from cache (populated during universe refresh)
+            fundamentals = self.fundamentals_cache.get_fundamentals(symbol)
+            
+            # 🧪 Modular Fallback: If fundamentals missing, try YFinance (Optionally)
+            from config import ENABLE_FALLBACKS
+            if not fundamentals and ENABLE_FALLBACKS:
+                try:
+                    # Non-blocking fetch for metadata
+                    fundamentals_data = self._fetch_fundamentals_from_sources(symbol, exchange, currency)
+                    if fundamentals_data:
+                        self.fundamentals_cache.set_fundamentals(symbol, fundamentals_data)
+                        fundamentals = fundamentals_data
+                except Exception:
+                    pass
 
             contract = Stock(pure_symbol, exchange, currency)
             qualified = await self.ib.qualifyContractsAsync(contract)
-            if not qualified: return None
+            
+            # Handle [None] case which IBKR returns for invalid contracts
+            # qualified is list of contracts. If empty or contains None, it failed.
+            is_valid = qualified and qualified[0]
+
+            if not is_valid: 
+                # Contract invalid/delisted - mark as inactive in DB (Tickers and Fundamentals)
+                self.db.update_ticker_status(symbol, 'INACTIVE', 'Error 200: Contract not found (IBKR)')
+                self.fundamentals_cache.set_fundamentals(symbol, {'is_active': False}, 'ibkr_validation')
+                return None
 
             # Attempt to fetch TRADES if possible for volume, otherwise MIDPOINT
             # For delayed data (Type 3), limit to 16 minutes ago to avoid permission issues
@@ -546,7 +580,9 @@ class IBKRProvider(BaseProvider):
                     barSizeSetting='1 day', whatToShow='MIDPOINT', useRTH=True
                 )
             
-            if not bars: return None
+            if not bars:
+                self.db.update_ticker_status(symbol, 'INACTIVE', 'IBKR: No Historical Data (Bars empty)')
+                return None
 
             # Extract basic price data
             low_52w = min(b.low for b in bars)
@@ -560,13 +596,19 @@ class IBKRProvider(BaseProvider):
                 avg_vol_30d = sum(b.volume for b in bars[-30:]) / 30
                 rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
             else:
-                # Fallback to yfinance just for the RVOL if IBKR didn't give volume
-                try:
-                    yf_hist = yf.Ticker(symbol).history(period='1mo')
-                    current_vol = yf_hist['Volume'].iloc[-1]
-                    avg_vol_30d = yf_hist['Volume'].mean()
-                    rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
-                except Exception:
+                # 🧪 Modular Fallback: Try YFinance for RVOL if IBKR volume is missing
+                from config import ENABLE_FALLBACKS
+                if ENABLE_FALLBACKS:
+                    try:
+                        import yfinance as yf
+                        yf_hist = yf.Ticker(symbol).history(period='1mo')
+                        current_vol = yf_hist['Volume'].iloc[-1]
+                        avg_vol_30d = yf_hist['Volume'].mean()
+                        rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
+                        volume = current_vol # Use YFinance volume for the report
+                    except Exception:
+                        rvol = 0
+                else:
                     rvol = 0
 
             # Prepare data for centralized screening
@@ -580,40 +622,37 @@ class IBKRProvider(BaseProvider):
                 'time': datetime.now()
             }
 
-            # Get market cap from YFinance (IBKR doesn't provide it directly)
-            try:
-                yf_ticker = yf.Ticker(symbol)
-                usd_mcap = usd_market_cap(symbol, yf_ticker.info.get('marketCap', 0))
-                symbol_data['usd_mcap'] = usd_mcap / 1e9  # Convert to billions for display
-            except Exception:
-                # If market cap fetch fails, set to 0 (will be filtered out by market cap check)
-                symbol_data['usd_mcap'] = 0
+            # Use cached fundamentals for market cap (populated during universe refresh)
+            usd_mcap = fundamentals.get('market_cap_usd', 0) if fundamentals else 0
+            symbol_data['usd_mcap'] = usd_mcap / 1e9  # billions
 
-            # Calculate additional technical indicators if enabled
-            if criteria.get('rsi_enabled', False) or criteria.get('ma_enabled', False) or criteria.get('atr_enabled', False):
-                # Need to get price series from YFinance for technical indicators
-                try:
-                    yf_hist = yf.Ticker(symbol).history(period='1y')
-                    if not yf_hist.empty:
-                        if criteria.get('rsi_enabled', False):
-                            symbol_data['rsi'] = calculate_rsi(yf_hist['Close'])
+            # Calculate technicals strictly from IBKR bars
+            if len(bars) >= 50:
+                closes = pd.Series([b.close for b in bars])
+                highs = pd.Series([b.high for b in bars])
+                lows = pd.Series([b.low for b in bars])
+                
+                if criteria.get('rsi_enabled', False):
+                    symbol_data['rsi'] = calculate_rsi(closes)
+                
+                if criteria.get('ma_enabled', False):
+                    sma50 = calculate_sma(closes, 50)
+                    sma200 = calculate_sma(closes, 200)
+                    symbol_data['price_vs_sma50_pct'] = current / sma50 if sma50 > 0 else 1.0
+                    symbol_data['sma50_vs_sma200_pct'] = sma50 / sma200 if sma200 > 0 else 1.0
+                    symbol_data['sma50'] = sma50
+                    symbol_data['sma200'] = sma200
 
-                        if criteria.get('ma_enabled', False):
-                            sma50 = calculate_sma(yf_hist['Close'], 50)
-                            sma200 = calculate_sma(yf_hist['Close'], 200)
-                            symbol_data['price_vs_sma50_pct'] = current / sma50 if sma50 > 0 else 1.0
-                            symbol_data['sma50_vs_sma200_pct'] = sma50 / sma200 if sma200 > 0 else 1.0
-
-                        if criteria.get('atr_enabled', False):
-                            symbol_data['atr_pct'] = calculate_atr(yf_hist['High'], yf_hist['Low'], yf_hist['Close'])
-                except Exception:
-                    # If YFinance fails, skip technical indicators but continue with basic screening
-                    pass
+                if criteria.get('atr_enabled', False):
+                    symbol_data['atr_pct'] = calculate_atr(highs, lows, closes)
 
             # Apply centralized screening logic
             filtered_result = should_pass_screening(symbol_data, criteria)
             return filtered_result
-        except Exception:
+
+        except Exception as e:
+            # Catch-all for other errors (Timeout, Network)
+            print(f"❌ {symbol} IBKR Error: {e}")
             pass
         return None
 
