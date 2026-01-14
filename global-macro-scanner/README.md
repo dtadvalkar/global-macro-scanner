@@ -44,29 +44,56 @@ The script will:
 3. Scan via IBKR (parallel, batch size 50) and fall back to YFinance where needed.
 4. Update the database with any status changes.
 
-## 🗄️ Database schema
+## 🗄️ Database Schema
+
+### 🏛️ Core Tables
 ```sql
 CREATE TABLE IF NOT EXISTS tickers (
-    ticker TEXT PRIMARY KEY,
+    symbol TEXT PRIMARY KEY,
     market TEXT,
-    last_updated TIMESTAMP,
     status TEXT DEFAULT 'ACTIVE',
-    status_message TEXT
-);
-
-CREATE TABLE IF NOT EXISTS stock_fundamentals (
-    ticker TEXT PRIMARY KEY,
-    exchange TEXT,
-    market_cap_usd BIGINT,
-    sector TEXT,
-    industry TEXT,
-    currency TEXT,
-    country TEXT,
-    is_active BOOLEAN,
-    data_source TEXT,
-    last_updated TIMESTAMP
+    status_message TEXT,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+### 📡 Unified Price Data (Recurring)
+```sql
+CREATE TABLE IF NOT EXISTS prices_daily (
+    ticker       TEXT,
+    trade_date   DATE,
+    open         NUMERIC,
+    high         NUMERIC,
+    low          NUMERIC,
+    close        NUMERIC,
+    adj_close    NUMERIC,
+    volume       BIGINT,
+    source       TEXT NOT NULL,  -- 'ibkr', 'yf', etc.
+    PRIMARY KEY (ticker, trade_date, source)
+);
+```
+
+### 🧬 Raw-Fidelity Storage (Maximum Truth)
+To ensure no data is lost during ingestion, we store the full verbatim output from each provider.
+
+| Table | Source | Content Type |
+| :--- | :--- | :--- |
+| `raw_fd_nse` | FinanceDatabase | Full JSON Metadata |
+| `raw_ibkr_nse` | IBKR (Reuters) | Complete XML Snapshot + Ratios |
+| `raw_yf_nse` | YFinance | Exhaustive `.info` Property Dictionary |
+
+```sql
+-- Example: Accessing Delayed Market Ticks (Nested JSONB)
+SELECT 
+    ticker,
+    mkt_data->'Ticker'->>'open' as open_price,
+    mkt_data->'Ticker'->>'close' as prior_close,
+    mkt_data->'Ticker'->>'last' as current_last -- -1.0 if market is closed
+FROM raw_ibkr_nse;
+```
+
+> [!TIP]
+> **Why is Volume 0?**: IBKR's `volume` field (TickType 74) represents **cumulative volume for the current trading day**. If you query while the market is closed (and before the next open), it resets to 0. Use the `xml_snapshot` or `prices_daily` for historical volume data.
 
 ## 📚 How it works
 - **Universe refresh** (`screener/universe.py`):

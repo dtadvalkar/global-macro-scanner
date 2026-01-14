@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ReportSnapshot Major="1" Minor="0" Revision="1">
+	<CoIDs>
+		<CoID Type="RepNo">A9ECE</CoID>
+		<CoID Type="CompanyName">Tata Consultancy Services Ltd</CoID>
+		<CoID Type="OrganizationPermID">4295872706</CoID>
+	</CoIDs>
+	<Issues>
+		<Issue ID="1" Type="C" Desc="Common Stock" Order="1">
+			<IssueID Type="Name">Fully Paid Ord. Shrs</IssueID>
+			<IssueID Type="Ticker">TCS</IssueID>
+			<IssueID Type="ISIN">INE467B01029</IssueID>
+			<IssueID Type="RIC">TCS.NS</IssueID>
+			<IssueID Type="DisplayRIC">TCS.NS</IssueID>
+			<IssueID Type="InstrumentPI">17342891</IssueID>
+			<IssueID Type="QuotePI">17341637</IssueID>
+			<IssueID Type="InstrumentPermID">8590015350</IssueID>
+			<IssueID Type="QuotePermID">55837406288</IssueID>
+			<Exchange Code="NSE" Country="IND">National Stock Exchange of India</Exchange>
+			<GlobalListingType>OSR</GlobalListingType>
+			<MostRecentSplit Date="2018-05-31">2.0</MostRecentSplit>
+		</Issue>
+		<Issue ID="2" Type="P" Desc="Preferred Stock" Order="1">
+			<IssueID Type="Name">Preference Shares</IssueID>
+			<IssueID Type="InstrumentPI">120093991</IssueID>
+			<IssueID Type="InstrumentPermID">21514226034</IssueID>
+			<Exchange Code="NA" Country="">Not Available</Exchange>
+		</Issue>
+	</Issues>
+	<CoGeneralInfo>
+		<CoStatus Code="1">Active</CoStatus>
+		<CoType Code="EQU">Equity Issue</CoType>
+		<LastModified>2025-10-23</LastModified>
+		<LatestAvailableAnnual>2025-03-31</LatestAvailableAnnual>
+		<LatestAvailableInterim>2025-09-30</LatestAvailableInterim>
+		<Employees LastUpdated="2025-06-30">613069</Employees>
+		<SharesOut Date="2025-09-30" TotalFloat="1020680911.0">3618087518.0</SharesOut>
+		<ReportingCurrency Code="INR">Rupee</ReportingCurrency>
+		<MostRecentExchange Date="2026-01-02">89.994</MostRecentExchange>
+	</CoGeneralInfo>
+	<TextInfo>
+		<Text Type="Business Summary" lastModified="2025-06-30T15:19:00">Tata Consultancy Services Ltd is an India-based company engaged in providing information technology (IT) services, consulting, and business solutions. Its business segments include Banking, Financial Services and Insurance; Manufacturing; Consumer Business; Communication, Media and Technology; Life Sciences and Healthcare and others, such as Energy, Resources and Utilities, s-Governance, and Products. The Company's products include TCS ADD, TCS BaNCS, TCS BFSI Platforms, TCS CHROMA, TCS Customer Intelligence &amp; Insights, TCS ERP on Cloud, TCS Intelligent Urban Exchange, Quartz-The Smart Ledgers, Jile, TCS Optumera, TCS TwinX, TCS TAP and TCS OmniStore. Its services portfolio consists of Artificial Intelligence, Cloud, Cognitive Business Operations, Consulting, Cybersecurity, Data and Analytics, Enterprise Solutions, Internet of Things (IoT), and Digital Engineering, TCS Interactive, TCS and AWS Cloud, TCS Enterprise Cloud, TCS and Google Cloud, TCS and Microsoft Cloud and others.</Text>
+		<Text Type="Financial Summary" lastModified="2025-10-23T10:39:11"> BRIEF: For the six months ended 30 September 2025, Tata Consultancy Services Ltd revenues increased 2% to RS1.292T. Net income increased 4% to RS248.35B. Revenues reflect Banking, Financial Services &amp; Insurance segment increase of 8% to RS504.53B, Others segment increase of 16% to RS127.01B, Consumer  Business segment increase of 2% to RS205.06B, United States of America segment increase from RS286.44B to RS576.48B.</Text>
+	</TextInfo>
+	<contactInfo lastUpdated="2025-12-19T02:29:28">
+		<streetAddress line="1">9th Floor Nirmal Building Nariman Point</streetAddress>
+		<streetAddress line="2"></streetAddress>
+		<streetAddress line="3"></streetAddress>
+		<city>MUMBAI</city>
+		<state-region></state-region>
+		<postalCode>400021</postalCode>
+		<country code="IND">India</country>
+		<contactName></contactName>
+		<contactTitle></contactTitle>
+		<phone>
+			<phone type="mainphone">
+				<countryPhoneCode>91</countryPhoneCode>
+				<city-areacode>22</city-areacode>
+				<number>67789595</number>
+			</phone>
+			<phone type="mainfax">
+				<countryPhoneCode>91</countryPhoneCode>
+				<city-areacode>22</city-areacode>
+				<number>67789660</number>
+			</phone>
+		</phone>
+	</contactInfo>
+	<webLinks lastUpdated="2018-07-11T13:19:58"><webSite mainCategory="Home Page">https://www.tcs.com/</webSite><eMail mainCategory="Company Contact/E-mail">
+		</eMail></webLinks>
+	<peerInfo lastUpdated="2025-12-19T02:29:28">
+		<IndustryInfo>
+			<Industry type="TRBC" order="1" reported="0" code="5720101010" mnem="">IT Services &amp; Consulting (NEC)</Industry>
+			<Industry type="NAICS" order="1" reported="0" code="541511" mnem="">Custom Computer Programming Services</Industry>
+			<Industry type="NAICS" order="2" reported="0" code="541512" mnem="">Computer Systems Design Services</Industry>
+			<Industry type="NAICS" order="3" reported="0" code="541519" mnem="">Other Computer Related Services</Industry>
+			<Industry type="NAICS" order="4" reported="0" code="518210" mnem="">Computing Infrastructure Providers, Data Processing, Web Hosting, and Related Services</Industry>
+			<Industry type="SIC" order="1" reported="0" code="7371" mnem="">Computer Programming Services</Industry>
+			<Industry type="SIC" order="2" reported="0" code="7373" mnem="">Computer Integrated System Design</Industry>
+			<Industry type="SIC" order="3" reported="0" code="7379" mnem="">Computer Related Services, Nec</Industry>
+			<Industry type="SIC" order="4" reported="0" code="7374" mnem="">Data Processing And Preparation</Industry>
+		</IndustryInfo>
+	</peerInfo>
+	<officers>
+		<officer rank="1" since="03/12/2015">
+			<firstName>Aarthi</firstName>
+			<mI></mI>
+			<lastName>Subramanian</lastName>
+			<age>57 </age>
+			<title startYear="2025" startMonth="05" startDay="01" iD1="PRE" abbr1="Pres." iD2="COO" abbr2="COO">President, Chief Operating Officer, Executive Director</title>
+		</officer>
+		<officer rank="2" since="03/16/2023">
+			<firstName>K.</firstName>
+			<mI></mI>
+			<lastName>Krithivasan</lastName>
+			<age>61 </age>
+			<title startYear="2023" startMonth="06" startDay="01" iD1="CEO" abbr1="CEO" iD2="MDR" abbr2="Mgng.Dir.">Chief Executive Officer, Managing Director, Executive Director</title>
+		</officer>
+		<officer rank="3" since="05/01/2021">
+			<firstName>Samir</firstName>
+			<mI></mI>
+			<lastName>Seksaria</lastName>
+			<age></age>
+			<title startYear="2021" startMonth="05" startDay="01" iD1="CFO" abbr1="CFO" iD2="" abbr2="">Chief Financial Officer</title>
+		</officer>
+		<officer rank="4" since="03/14/2025">
+			<firstName>Sudeep</firstName>
+			<mI></mI>
+			<lastName>Kunnumal</lastName>
+			<age></age>
+			<title startYear="2025" startMonth="03" startDay="14" iD1="CHO" abbr1="Chief HR" iD2="" abbr2="">Chief Human Resources Officer - Designate</title>
+		</officer>
+		<officer rank="5" since="2023">
+			<firstName>Harrick</firstName>
+			<mI></mI>
+			<lastName>Vin</lastName>
+			<age></age>
+			<title startYear="2023" startMonth="" startDay="" iD1="CTO" abbr1="CTO" iD2="" abbr2="">Chief Technology Officer</title>
+		</officer>
+		<officer rank="6" since="2023">
+			<firstName>Abhinav</firstName>
+			<mI></mI>
+			<lastName>Kumar</lastName>
+			<age></age>
+			<title startYear="2023" startMonth="" startDay="" iD1="CMO" abbr1="CMO" iD2="" abbr2="">Chief Marketing Officer</title>
+		</officer>
+		<officer rank="7" since="11/01/2024">
+			<firstName>Yashaswin</firstName>
+			<mI></mI>
+			<lastName>Sheth</lastName>
+			<age></age>
+			<title startYear="2024" startMonth="11" startDay="01" iD1="CCO" abbr1="Chief Comp." iD2="SEC" abbr2="Secy.">Compliance Officer, Company Secretary</title>
+		</officer>
+		<officer rank="8" since="2019">
+			<firstName>Madhav</firstName>
+			<mI></mI>
+			<lastName>Anchan</lastName>
+			<age></age>
+			<title startYear="2021" startMonth="" startDay="" iD1="GCN" abbr1="Counsel" iD2="" abbr2="">General Counsel - Legal</title>
+		</officer>
+		<officer rank="9" since="05/01/2025">
+			<firstName>Mangesh</firstName>
+			<mI></mI>
+			<lastName>Sathe</lastName>
+			<age></age>
+			<title startYear="2025" startMonth="05" startDay="01" iD1="OTH" abbr1="Other" iD2="" abbr2="">Chief Strategy Officer</title>
+		</officer>
+	</officers>
+	<Ratios PriceCurrency="INR" ReportingCurrency="INR" ExchangeRate="1.00000" LatestAvailableDate="2025-03-31">
+		<Group ID="Price and Volume">
+			<Ratio FieldName="NPRICE" Type="N">3207.80000</Ratio>
+			<Ratio FieldName="NHIG" Type="N">4255.11859</Ratio>
+			<Ratio FieldName="NLOW" Type="N">2866.60000</Ratio>
+			<Ratio FieldName="PDATE" Type="D">2026-01-09T00:00:00</Ratio>
+			<Ratio FieldName="VOL10DAVG" Type="N">2.40312</Ratio>
+			<Ratio FieldName="EV" Type="N">11263620.00000</Ratio>
+		</Group>
+		<Group ID="Income Statement">
+			<Ratio FieldName="MKTCAP" Type="N">11606100.00000</Ratio>
+			<Ratio FieldName="AREV" Type="N">2553240.00000</Ratio>
+			<Ratio FieldName="AEBITD" Type="N">674100.00000</Ratio>
+			<Ratio FieldName="ANIAC" Type="N">485530.00000</Ratio>
+		</Group>
+		<Group ID="Per share data">
+			<Ratio FieldName="AEPSXCLXOR" Type="N">134.19520</Ratio>
+			<Ratio FieldName="AREVPS" Type="N">705.68770</Ratio>
+			<Ratio FieldName="ABVPS" Type="N">261.89530</Ratio>
+			<Ratio FieldName="ACSHPS" Type="N">120.61620</Ratio>
+			<Ratio FieldName="ACFSHR" Type="N">149.35790</Ratio>
+			<Ratio FieldName="ADIVSHR" Type="N">60.00000</Ratio>
+		</Group>
+		<Group ID="Other Ratios">
+			<Ratio FieldName="AGROSMGN" Type="N">95.43795</Ratio>
+			<Ratio FieldName="AROEPCT" Type="N">52.42031</Ratio>
+			<Ratio FieldName="APR2REV" Type="N">4.54564</Ratio>
+			<Ratio FieldName="APEEXCLXOR" Type="N">23.90398</Ratio>
+			<Ratio FieldName="APRICE2BK" Type="N">12.24841</Ratio>
+			<Ratio FieldName="Employees" Type="N">613069</Ratio>
+		</Group>
+	</Ratios>
+	<ForecastData ConsensusType="Mean" CurFiscalYear="2026" CurFiscalYearEndMonth="3" CurInterimEndCalYear="2025" CurInterimEndMonth="12" EarningsBasis="PRX">
+		<Ratio FieldName="ConsRecom" Type="N">
+			<Value PeriodType="CURR">2.0476</Value>
+		</Ratio>
+		<Ratio FieldName="TargetPrice" Type="N">
+			<Value PeriodType="CURR">3537.00000</Value>
+		</Ratio>
+		<Ratio FieldName="ProjLTGrowthRate" Type="N">
+			<Value PeriodType="CURR">4.2000</Value>
+		</Ratio>
+		<Ratio FieldName="ProjPE" Type="N">
+			<Value PeriodType="CURR">22.52366</Value>
+		</Ratio>
+		<Ratio FieldName="ProjSales" Type="N">
+			<Value PeriodType="CURR">2638010.09320</Value>
+		</Ratio>
+		<Ratio FieldName="ProjSalesQ" Type="N">
+			<Value PeriodType="CURR">666712.84790</Value>
+		</Ratio>
+		<Ratio FieldName="ProjEPS" Type="N">
+			<Value PeriodType="CURR">142.41910</Value>
+		</Ratio>
+		<Ratio FieldName="ProjEPSQ" Type="N">
+			<Value PeriodType="CURR">35.78670</Value>
+		</Ratio>
+		<Ratio FieldName="ProjProfit" Type="N">
+			<Value PeriodType="CURR">683606.53300</Value>
+		</Ratio>
+		<Ratio FieldName="ProjDPS" Type="N">
+			<Value PeriodType="CURR">117.08450</Value>
+		</Ratio>
+	</ForecastData>
+</ReportSnapshot>

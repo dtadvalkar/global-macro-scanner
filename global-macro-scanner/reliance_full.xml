@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ReportSnapshot Major="1" Minor="0" Revision="1">
+	<CoIDs>
+		<CoID Type="RepNo">A4441</CoID>
+		<CoID Type="CompanyName">Reliance Industries Ltd</CoID>
+		<CoID Type="OrganizationPermID">4295872979</CoID>
+	</CoIDs>
+	<Issues>
+		<Issue ID="1" Type="C" Desc="Common Stock" Order="1">
+			<IssueID Type="Name">Fully Paid Ord. Shrs</IssueID>
+			<IssueID Type="Ticker">RELIANCE</IssueID>
+			<IssueID Type="ISIN">INE002A01018</IssueID>
+			<IssueID Type="RIC">RELI.NS</IssueID>
+			<IssueID Type="DisplayRIC">RELI.NS</IssueID>
+			<IssueID Type="InstrumentPI">349496</IssueID>
+			<IssueID Type="QuotePI">783174</IssueID>
+			<IssueID Type="InstrumentPermID">8590011271</IssueID>
+			<IssueID Type="QuotePermID">55837405019</IssueID>
+			<Exchange Code="NSE" Country="IND">National Stock Exchange of India</Exchange>
+			<GlobalListingType>OSR</GlobalListingType>
+			<MostRecentSplit Date="2024-10-28">2.0</MostRecentSplit>
+		</Issue>
+		<Issue ID="2" Type="P" Desc="Preferred Stock" Order="1">
+			<IssueID Type="Name">Preference Shares</IssueID>
+			<IssueID Type="InstrumentPI">84188368</IssueID>
+			<IssueID Type="InstrumentPermID">21475792141</IssueID>
+			<Exchange Code="BOM" Country="IND">Bombay Stock Exchange</Exchange>
+		</Issue>
+	</Issues>
+	<CoGeneralInfo>
+		<CoStatus Code="1">Active</CoStatus>
+		<CoType Code="EQU">Equity Issue</CoType>
+		<LastModified>2025-10-20</LastModified>
+		<LatestAvailableAnnual>2025-03-31</LatestAvailableAnnual>
+		<LatestAvailableInterim>2025-09-30</LatestAvailableInterim>
+		<Employees LastUpdated="2025-03-31">403303</Employees>
+		<SharesOut Date="2025-09-30" TotalFloat="6649622805.0">13532372898.0</SharesOut>
+		<ReportingCurrency Code="INR">Rupee</ReportingCurrency>
+		<MostRecentExchange Date="2026-01-09">90.215</MostRecentExchange>
+	</CoGeneralInfo>
+	<TextInfo>
+		<Text Type="Business Summary" lastModified="2025-04-24T14:14:32">Reliance Industries Limited is engaged in the activities of hydrocarbon exploration and production, petroleum refining and marketing, petrochemicals, advanced materials and composites, renewables, retail and digital services. The Companys segments include Oil to Chemicals (O2C), Oil and Gas, Retail, and Digital Services. The O2C segment covers refining, petrochemicals, fuel retailing, aviation fuel, and bulk wholesale marketing, with a portfolio that includes transportation fuels, polymers, polyesters, and elastomers. The Oil and Gas segment focuses on the exploration, development, and production of crude oil and natural gas. The Retail segment involves consumer retail and related services. The Digital Services segment provides a range of digital services. It also operates an oncology-focused healthcare platform, which focuses on technology-driven cancer care. Its subsidiaries include 7-India Convenience Retail Limited, Amante India Limited, Cover Story Clothing Limited, and others.</Text>
+		<Text Type="Financial Summary" lastModified="2025-10-20T11:32:20"> BRIEF: For the six months ended 30 September 2025, Reliance Industries Ltd revenues increased 8% to RS5.076T. Net income increased 42% to RS451.59B. Revenues reflect Retail segment increase of 15% to RS1.747T. Net income benefited from Other Income increase from RS88.59B to RS196.01B (income). Basic Earnings per Share excluding Extraordinary Items increased from RS23.43 to RS33.37.</Text>
+	</TextInfo>
+	<contactInfo lastUpdated="2025-12-29T10:33:04">
+		<streetAddress line="1">Maker Chambers IV, Nariman Point</streetAddress>
+		<streetAddress line="2"></streetAddress>
+		<streetAddress line="3"></streetAddress>
+		<city>MUMBAI</city>
+		<state-region></state-region>
+		<postalCode>400021</postalCode>
+		<country code="IND">India</country>
+		<contactName></contactName>
+		<contactTitle></contactTitle>
+		<phone>
+			<phone type="mainphone">
+				<countryPhoneCode>91</countryPhoneCode>
+				<city-areacode>22</city-areacode>
+				<number>35555000</number>
+			</phone>
+			<phone type="mainfax">
+				<countryPhoneCode>91</countryPhoneCode>
+				<city-areacode>22</city-areacode>
+				<number>22785110</number>
+			</phone>
+		</phone>
+	</contactInfo>
+	<webLinks lastUpdated="2022-08-04T21:46:48"><webSite mainCategory="Home Page">https://www.ril.com/</webSite><eMail mainCategory="Company Contact/E-mail">investor.relations@ril.com</eMail></webLinks>
+	<peerInfo lastUpdated="2025-12-29T10:33:04">
+		<IndustryInfo>
+			<Industry type="TRBC" order="1" reported="0" code="5010203010" mnem="">Oil &amp; Gas Refining and Marketing (NEC)</Industry>
+			<Industry type="NAICS" order="1" reported="0" code="324110" mnem="">Petroleum Refineries</Industry>
+			<Industry type="NAICS" order="2" reported="0" code="211120" mnem="">Crude Petroleum Extraction</Industry>
+			<Industry type="NAICS" order="3" reported="0" code="445110" mnem="">Supermarkets and Other Grocery Retailers (except Convenience Retailers)</Industry>
+			<Industry type="NAICS" order="4" reported="0" code="313110" mnem="">Fiber, Yarn, and Thread Mills</Industry>
+			<Industry type="NAICS" order="5" reported="0" code="458110" mnem="">Clothing and Clothing Accessories Retailers</Industry>
+			<Industry type="NAICS" order="6" reported="0" code="517810" mnem="">All Other Telecommunications</Industry>
+			<Industry type="NAICS" order="7" reported="0" code="517112" mnem="">Wireless Telecommunications Carriers (except Satellite)</Industry>
+			<Industry type="NAICS" order="8" reported="0" code="512110" mnem="">Motion Picture and Video Production</Industry>
+			<Industry type="NAICS" order="9" reported="0" code="512120" mnem="">Motion Picture and Video Distribution</Industry>
+			<Industry type="NAICS" order="10" reported="0" code="211130" mnem="">Natural Gas Extraction</Industry>
+			<Industry type="SIC" order="1" reported="0" code="2911" mnem="">Petroleum Refining</Industry>
+			<Industry type="SIC" order="2" reported="0" code="1311" mnem="">Crude Petroleum And Natural Gas</Industry>
+			<Industry type="SIC" order="3" reported="0" code="5411" mnem="">Grocery Stores</Industry>
+			<Industry type="SIC" order="4" reported="0" code="2281" mnem="">Yarn Spinning Mills</Industry>
+			<Industry type="SIC" order="5" reported="0" code="5651" mnem="">Family Clothing Stores</Industry>
+			<Industry type="SIC" order="6" reported="0" code="4899" mnem="">Communications Services, Nec</Industry>
+			<Industry type="SIC" order="7" reported="0" code="4812" mnem="">Radiotelephone Communications</Industry>
+			<Industry type="SIC" order="8" reported="0" code="7812" mnem="">Motion Picture &amp; Video Production</Industry>
+			<Industry type="SIC" order="9" reported="0" code="7822" mnem="">Motion Picture And Tape Dist'N</Industry>
+		</IndustryInfo>
+	</peerInfo>
+	<officers>
+		<officer rank="1" since="07/31/2002">
+			<firstName>Mukesh</firstName>
+			<mI>Dhirubhai</mI>
+			<lastName>Ambani</lastName>
+			<age>68 </age>
+			<title startYear="2002" startMonth="07" startDay="31" iD1="CHM" abbr1="Chmn." iD2="MDR" abbr2="Mgng.Dir.">Executive Chairman of the Board, Managing Director</title>
+		</officer>
+		<officer rank="2" since="2011">
+			<firstName>Srikanth</firstName>
+			<mI></mI>
+			<lastName>Venkatachari</lastName>
+			<age></age>
+			<title startYear="2023" startMonth="06" startDay="01" iD1="CFO" abbr1="CFO" iD2="" abbr2="">Chief Financial Officer</title>
+		</officer>
+		<officer rank="3" since="03/29/2019">
+			<firstName>Savithri</firstName>
+			<mI></mI>
+			<lastName>Parekh</lastName>
+			<age></age>
+			<title startYear="2019" startMonth="03" startDay="29" iD1="CCO" abbr1="Chief Comp." iD2="SEC" abbr2="Secy.">Company Secretary, Compliance Officer</title>
+		</officer>
+		<officer rank="4" since="05/01/2025">
+			<firstName>Anant</firstName>
+			<mI>Mukesh</mI>
+			<lastName>Ambani</lastName>
+			<age></age>
+			<title startYear="2025" startMonth="05" startDay="01" iD1="EDR" abbr1="Exec. Dir." iD2="" abbr2="">Executive Director</title>
+		</officer>
+		<officer rank="5" since="08/04/1995">
+			<firstName>Hital</firstName>
+			<mI>Rasiklal</mI>
+			<lastName>Meswani</lastName>
+			<age></age>
+			<title startYear="1995" startMonth="08" startDay="04" iD1="EDR" abbr1="Exec. Dir." iD2="" abbr2="">Executive Director</title>
+		</officer>
+		<officer rank="6" since="06/26/1986">
+			<firstName>Nikhil</firstName>
+			<mI>Rasiklal</mI>
+			<lastName>Meswani</lastName>
+			<age>59 </age>
+			<title startYear="1986" startMonth="06" startDay="26" iD1="EDR" abbr1="Exec. Dir." iD2="" abbr2="">Executive Director</title>
+		</officer>
+		<officer rank="7" since="08/21/2009">
+			<firstName>Panda</firstName>
+			<mI>Madhusudan</mI>
+			<lastName>Sivaprasad</lastName>
+			<age>72 </age>
+			<title startYear="2009" startMonth="08" startDay="21" iD1="EDR" abbr1="Exec. Dir." iD2="" abbr2="">Executive Director</title>
+		</officer>
+	</officers>
+	<Ratios PriceCurrency="INR" ReportingCurrency="INR" ExchangeRate="1.00000" LatestAvailableDate="2025-03-31">
+		<Group ID="Price and Volume">
+			<Ratio FieldName="NPRICE" Type="N">1483.20000</Ratio>
+			<Ratio FieldName="NHIG" Type="N">1611.80000</Ratio>
+			<Ratio FieldName="NLOW" Type="N">1114.85000</Ratio>
+			<Ratio FieldName="PDATE" Type="D">2026-01-12T00:00:00</Ratio>
+			<Ratio FieldName="VOL10DAVG" Type="N">10.86573</Ratio>
+			<Ratio FieldName="EV" Type="N">21379190.00000</Ratio>
+		</Group>
+		<Group ID="Income Statement">
+			<Ratio FieldName="MKTCAP" Type="N">20071360.00000</Ratio>
+			<Ratio FieldName="AREV" Type="N">9801360.00000</Ratio>
+			<Ratio FieldName="AEBITD" Type="N">1657180.00000</Ratio>
+			<Ratio FieldName="ANIAC" Type="N">696480.00000</Ratio>
+		</Group>
+		<Group ID="Per share data">
+			<Ratio FieldName="AEPSXCLXOR" Type="N">51.46755</Ratio>
+			<Ratio FieldName="AREVPS" Type="N">724.28780</Ratio>
+			<Ratio FieldName="ABVPS" Type="N">623.09840</Ratio>
+			<Ratio FieldName="ACSHPS" Type="N">176.45980</Ratio>
+			<Ratio FieldName="ACFSHR" Type="N">99.19297</Ratio>
+			<Ratio FieldName="ADIVSHR" Type="N">5.50000</Ratio>
+		</Group>
+		<Group ID="Other Ratios">
+			<Ratio FieldName="AGROSMGN" Type="N">30.88296</Ratio>
+			<Ratio FieldName="AROEPCT" Type="N">8.51088</Ratio>
+			<Ratio FieldName="APR2REV" Type="N">2.04781</Ratio>
+			<Ratio FieldName="APEEXCLXOR" Type="N">28.81816</Ratio>
+			<Ratio FieldName="APRICE2BK" Type="N">2.38036</Ratio>
+			<Ratio FieldName="Employees" Type="N">403303</Ratio>
+		</Group>
+	</Ratios>
+	<ForecastData ConsensusType="Mean" CurFiscalYear="2026" CurFiscalYearEndMonth="3" CurInterimEndCalYear="2025" CurInterimEndMonth="12" EarningsBasis="PRX">
+		<Ratio FieldName="ConsRecom" Type="N">
+			<Value PeriodType="CURR">1.7353</Value>
+		</Ratio>
+		<Ratio FieldName="TargetPrice" Type="N">
+			<Value PeriodType="CURR">1705.81820</Value>
+		</Ratio>
+		<Ratio FieldName="ProjLTGrowthRate" Type="N">
+			<Value PeriodType="CURR">-99999.99000</Value>
+		</Ratio>
+		<Ratio FieldName="ProjPE" Type="N">
+			<Value PeriodType="CURR">24.63624</Value>
+		</Ratio>
+		<Ratio FieldName="ProjSales" Type="N">
+			<Value PeriodType="CURR">10042163.66590</Value>
+		</Ratio>
+		<Ratio FieldName="ProjSalesQ" Type="N">
+			<Value PeriodType="CURR">2561416.02940</Value>
+		</Ratio>
+		<Ratio FieldName="ProjEPS" Type="N">
+			<Value PeriodType="CURR">60.20400</Value>
+		</Ratio>
+		<Ratio FieldName="ProjEPSQ" Type="N">
+			<Value PeriodType="CURR">14.79480</Value>
+		</Ratio>
+		<Ratio FieldName="ProjProfit" Type="N">
+			<Value PeriodType="CURR">1250660.77250</Value>
+		</Ratio>
+		<Ratio FieldName="ProjDPS" Type="N">
+			<Value PeriodType="CURR">6.70520</Value>
+		</Ratio>
+	</ForecastData>
+</ReportSnapshot>
