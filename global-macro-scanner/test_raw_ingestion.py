@@ -75,7 +75,7 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
-    print("   ✅ Schema Ready.")
+    print("   Schema Ready.")
 
 async def fetch_financedatabase_raw(symbol: str):
     print(f"\n[FD] Fetching FinanceDatabase for: {symbol}...")
@@ -91,6 +91,18 @@ async def fetch_financedatabase_raw(symbol: str):
     except Exception as e:
         print(f"   ! FD Fetch failed: {e}")
         return {"error": str(e)}
+
+async def fetch_all_financedatabase_nse():
+    """Fetch all NSE stocks data from FinanceDatabase in one bulk call."""
+    print("\n[FD] Fetching ALL NSE stocks from FinanceDatabase...")
+    try:
+        equities = fd.Equities()
+        data = equities.select(exchange='NSE')
+        print(f"   Retrieved {len(data)} NSE stocks from FinanceDatabase")
+        return data.to_dict(orient='index')
+    except Exception as e:
+        print(f"   ! FD Bulk fetch failed: {e}")
+        return {}
 
 import random # Added for clientId randomization
 
@@ -187,22 +199,48 @@ async def save_to_db(master_id, fd_raw, ibkr_raw, yf_raw):
     print(f"[DB] Ingesting {master_id}...")
     conn = psycopg2.connect(dbname=DB_CONFIG['db_name'], user=DB_CONFIG['db_user'], password=DB_CONFIG['db_pass'], host=DB_CONFIG['db_host'], port=DB_CONFIG['db_port'])
     cur = conn.cursor()
-    
+
     # 1. FD
-    cur.execute(f"INSERT INTO {TBL_RAW_FD} (ticker, raw_data) VALUES (%s, %s) ON CONFLICT (ticker) DO UPDATE SET raw_data = EXCLUDED.raw_data, last_updated = CURRENT_TIMESTAMP", 
+    cur.execute(f"INSERT INTO {TBL_RAW_FD} (ticker, raw_data) VALUES (%s, %s) ON CONFLICT (ticker) DO UPDATE SET raw_data = EXCLUDED.raw_data, last_updated = CURRENT_TIMESTAMP",
                 (master_id, json.dumps(clean_dict(fd_raw))))
-    
+
     # 2. IBKR
-    cur.execute(f"INSERT INTO {TBL_RAW_IBKR} (ticker, xml_snapshot, xml_ratios, mkt_data, contract_details) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (ticker) DO UPDATE SET xml_snapshot = EXCLUDED.xml_snapshot, xml_ratios = EXCLUDED.xml_ratios, mkt_data = EXCLUDED.mkt_data, contract_details = EXCLUDED.contract_details, last_updated = CURRENT_TIMESTAMP", 
+    cur.execute(f"INSERT INTO {TBL_RAW_IBKR} (ticker, xml_snapshot, xml_ratios, mkt_data, contract_details) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (ticker) DO UPDATE SET xml_snapshot = EXCLUDED.xml_snapshot, xml_ratios = EXCLUDED.xml_ratios, mkt_data = EXCLUDED.mkt_data, contract_details = EXCLUDED.contract_details, last_updated = CURRENT_TIMESTAMP",
                 (master_id, ibkr_raw.get('xml_snapshot'), ibkr_raw.get('xml_ratios'), json.dumps(clean_dict(ibkr_raw.get('mkt_data'))), json.dumps(clean_dict(ibkr_raw.get('contract_details')))))
-    
+
     # 3. YF
-    cur.execute(f"INSERT INTO {TBL_RAW_YF} (ticker, raw_info, raw_fast_info) VALUES (%s, %s, %s) ON CONFLICT (ticker) DO UPDATE SET raw_info = EXCLUDED.raw_info, raw_fast_info = EXCLUDED.raw_fast_info, last_updated = CURRENT_TIMESTAMP", 
+    cur.execute(f"INSERT INTO {TBL_RAW_YF} (ticker, raw_info, raw_fast_info) VALUES (%s, %s, %s) ON CONFLICT (ticker) DO UPDATE SET raw_info = EXCLUDED.raw_info, raw_fast_info = EXCLUDED.raw_fast_info, last_updated = CURRENT_TIMESTAMP",
                 (master_id, json.dumps(clean_dict(yf_raw.get('info'))), json.dumps(clean_dict(yf_raw.get('fast_info')))))
-    
+
     conn.commit()
     cur.close()
     conn.close()
+
+async def ingest_all_fd_nse():
+    """Ingest all NSE stocks from FinanceDatabase into raw_fd_nse table."""
+    init_db()
+    fd_data = await fetch_all_financedatabase_nse()
+
+    if not fd_data:
+        print("❌ No FD data retrieved, aborting ingestion.")
+        return
+
+    conn = psycopg2.connect(dbname=DB_CONFIG['db_name'], user=DB_CONFIG['db_user'], password=DB_CONFIG['db_pass'], host=DB_CONFIG['db_host'], port=DB_CONFIG['db_port'])
+    cur = conn.cursor()
+
+    batch_data = []
+    for ticker, data in fd_data.items():
+        # Convert ticker to .NSE format for consistency
+        master_ticker = f"{ticker}.NSE" if not ticker.endswith('.NSE') else ticker
+        batch_data.append((master_ticker, json.dumps(clean_dict(data))))
+
+    print(f"[DB] Bulk inserting {len(batch_data)} NSE stocks into {TBL_RAW_FD}...")
+    execute_values(cur, f"INSERT INTO {TBL_RAW_FD} (ticker, raw_data) VALUES %s ON CONFLICT (ticker) DO UPDATE SET raw_data = EXCLUDED.raw_data, last_updated = CURRENT_TIMESTAMP", batch_data)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"Successfully ingested {len(batch_data)} NSE stocks from FinanceDatabase.")
 
 async def ingest_multi_ohlcv(master_ids):
     sfx_map = {get_suffixes(mid)["yf"]: mid for mid in master_ids}
@@ -225,7 +263,24 @@ async def ingest_multi_ohlcv(master_ids):
     conn.commit()
     cur.close()
     conn.close()
-    print(f"   ✅ Ingested {len(batch_data)} OHLCV rows.")
+    print(f"   Ingested {len(batch_data)} OHLCV rows.")
+
+async def main_fd_only():
+    """Modular function to ingest only FinanceDatabase NSE data."""
+    await ingest_all_fd_nse()
+
+async def main_ibkr_only(master_ids=None):
+    """Modular function to ingest only IBKR data for given tickers."""
+    if master_ids is None:
+        master_ids = MASTER_IDS
+    init_db()
+    for mid in master_ids:
+        sfx = get_suffixes(mid)
+        # Only fetch IBKR data
+        ibkr_raw = await fetch_ibkr_raw(sfx["ibkr"], IBKR_PORT)
+        # Save only IBKR data (pass empty dicts for others)
+        await save_to_db(mid, {}, ibkr_raw, {})
+    print(f"\n[IBKR COMPLETE] Raw IBKR data ingested for {len(master_ids)} tickers.")
 
 async def run_data_audit():
     init_db()

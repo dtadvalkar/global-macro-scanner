@@ -312,17 +312,17 @@ def flatten_mega():
                 
                 sql = f"INSERT INTO stock_fundamentals ({', '.join(cols)}) VALUES ({', '.join(['%s']*len(cols))});"
                 cur.execute(sql, vals)
-                print(f"   ✅ {ticker} mega-flattened.")
+                print(f"   {ticker} mega-flattened.")
 
             except Exception as e:
-                print(f"   ❌ Error at {ticker}: {e}")
+                print(f"   Error at {ticker}: {e}")
                 import traceback
                 traceback.print_exc()
 
         conn.commit()
         cur.close()
         conn.close()
-        print("\n🏆 MISSION COMPLETE: stock_fundamentals is now a 100+ Column Mega-Table.")
+        print("\nMISSION COMPLETE: stock_fundamentals is now a 100+ Column Mega-Table.")
 
     except Exception as e:
         print(f"CRITICAL: {e}")
