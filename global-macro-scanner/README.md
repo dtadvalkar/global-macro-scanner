@@ -95,6 +95,183 @@ FROM raw_ibkr_nse;
 > [!TIP]
 > **Why is Volume 0?**: IBKR's `volume` field (TickType 74) represents **cumulative volume for the current trading day**. If you query while the market is closed (and before the next open), it resets to 0. Use the `xml_snapshot` or `prices_daily` for historical volume data.
 
+## 📊 **Complete ETL Pipeline & Market Data Architecture**
+
+### **🏗️ ETL Pipeline Overview**
+```
+Raw Data Sources → Archival Layer → Analytical Layer → Application Layer
+```
+
+**Phase 1: Raw Data Ingestion**
+- FinanceDatabase → `raw_fd_nse` (JSON metadata)
+- IBKR Fundamentals → `raw_ibkr_nse` (XML snapshots & ratios)
+- IBKR Market Data → `raw_ibkr_nse.mkt_data` (JSON snapshots)
+
+**Phase 2: Data Transformation**
+- Fundamentals Flattening → `stock_fundamentals` (81-column analytical table)
+- Market Data Flattening → `current_market_data` (structured current prices)
+
+**Phase 3: Historical Data Collection**
+- YFinance Bulk Download → `prices_daily` (2-year OHLCV history)
+
+### **🗂️ Complete Table Architecture**
+
+#### **📥 Raw Data Layer (Archival)**
+| Table | Source | Purpose | Data Type | Frequency |
+|-------|--------|---------|-----------|-----------|
+| `raw_fd_nse` | FinanceDatabase | Company metadata | JSONB | Quarterly |
+| `raw_ibkr_nse` | IBKR | Fundamentals XML + Market snapshots | TEXT + JSONB | Daily |
+| `raw_yf_nse` | YFinance | Company info | JSONB | As needed |
+
+#### **🔄 Analytical Layer (Structured)**
+| Table | Source | Purpose | Key Fields | Update Frequency |
+|-------|--------|---------|------------|------------------|
+| `stock_fundamentals` | IBKR/FD | Company fundamentals | 81+ financial metrics | Quarterly |
+| `current_market_data` | IBKR | Current market state | last_price, open, high, low, volume | Daily |
+| `prices_daily` | YFinance | Historical OHLCV bars | OHLCV by date | One-time bulk |
+
+#### **🎯 Application Layer (Query-Ready)**
+| Table | Purpose | Primary Use Case |
+|-------|---------|------------------|
+| `tickers` | Universe management | Active/inactive status tracking |
+| `stock_fundamentals` | Fundamental analysis | Valuation, ratios, company health |
+| `current_market_data` | Current market state | Real-time price monitoring |
+| `prices_daily` | Historical analysis | Technical analysis, charting |
+
+### **📈 Market Data Collection Systems**
+
+#### **1. YFinance Historical Data Collection**
+**Purpose**: One-time bulk download of 2 years of daily OHLCV data for all fundamentals tickers.
+
+**Script**: `collect_historical_yfinance.py`
+```bash
+python collect_historical_yfinance.py
+```
+
+**Features**:
+- ✅ Bulk download with threading (avoids rate limits)
+- ✅ Automatic ticker format conversion (`.NSE` → `.NS`)
+- ✅ Error handling and progress tracking
+- ✅ Stores in `prices_daily` with `source='yf'`
+
+**Data Flow**:
+```
+stock_fundamentals.ticker → YFinance API → prices_daily (OHLCV history)
+```
+
+#### **2. IBKR Current Market Data Flattening**
+**Purpose**: Extract current market state from stored IBKR snapshots into structured table.
+
+**Script**: `flatten_ibkr_market_data.py`
+```bash
+python flatten_ibkr_market_data.py
+```
+
+**Features**:
+- ✅ Extracts 6 price fields from JSON: last, open, high, low, close, volume
+- ✅ Creates `current_market_data` table automatically
+- ✅ Data validation and error handling
+- ✅ Summary statistics and quality checks
+
+**Data Flow**:
+```
+raw_ibkr_nse.mkt_data (JSON) → current_market_data (structured)
+```
+
+#### **3. Audit & Inspection Tools**
+**IBKR Market Data Audit**: `audit_mkt_json.py`
+```bash
+python audit_mkt_json.py  # Displays extracted market data in table format
+```
+
+**Database Health Check**: `check_progress.py`
+```bash
+python check_progress.py  # Shows row counts for all tables
+```
+
+### **🔄 Data Relationships & Flow**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    EXTERNAL DATA SOURCES                         │
+├─────────────────────────────────────────────────────────────────┤
+│  FinanceDatabase    IBKR Fundamentals    IBKR Market     YFinance │
+│  (Company Data)     (XML + Ratios)       (Snapshots)     (OHLCV) │
+└─────────────────────┬─────────────────────┬─────────────┬─────────┘
+                      │                     │             │
+                      ▼                     ▼             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     RAW DATA LAYER                              │
+├─────────────────────────────────────────────────────────────────┤
+│  raw_fd_nse         raw_ibkr_nse         raw_ibkr_nse    prices_daily │
+│  (JSON)             (XML + JSON)         .mkt_data       (YFinance)   │
+└─────────────────────┼─────────────────────┼─────────────┼─────────────┘
+                      │                     │             │
+                      ▼                     ▼             │
+┌─────────────────────────────────────────────────────────────────┐
+│                  ANALYTICAL LAYER                               │
+├─────────────────────────────────────────────────────────────────┤
+│  stock_fundamentals ←───── flatten_ibkr_mega.py                 │
+│  (81+ columns)                                                  │
+│                                                                 │
+│  current_market_data ←─── flatten_ibkr_market_data.py           │
+│  (Current prices)                                               │
+│                                                                 │
+│  prices_daily ────────────── collect_historical_yfinance.py ────┘
+│  (Historical OHLCV)                                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### **💾 Key Data Structures**
+
+#### **current_market_data Table**
+```sql
+CREATE TABLE current_market_data (
+    ticker TEXT PRIMARY KEY,
+    last_price NUMERIC,      -- Current/last traded price
+    close_price NUMERIC,     -- Previous close
+    open_price NUMERIC,      -- Today's open
+    high_price NUMERIC,      -- Today's high
+    low_price NUMERIC,       -- Today's low
+    volume BIGINT,           -- Trading volume
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### **prices_daily Table** (Enhanced)
+```sql
+CREATE TABLE prices_daily (
+    ticker TEXT,
+    trade_date DATE,
+    open NUMERIC,
+    high NUMERIC,
+    low NUMERIC,
+    close NUMERIC,
+    adj_close NUMERIC,
+    volume BIGINT,
+    source TEXT NOT NULL,    -- 'yf' for YFinance, 'ibkr' for IBKR
+    PRIMARY KEY (ticker, trade_date, source)
+);
+```
+
+### **🔧 ETL Pipeline Scripts**
+
+| Script | Purpose | Input | Output | Frequency |
+|--------|---------|-------|--------|-----------|
+| `collect_historical_yfinance.py` | Bulk YFinance download | Fundamentals tickers | prices_daily | One-time |
+| `flatten_ibkr_market_data.py` | IBKR market data flattening | raw_ibkr_nse.mkt_data | current_market_data | As needed |
+| `flatten_ibkr_mega.py` | Fundamentals flattening | raw_ibkr_nse XML | stock_fundamentals | Quarterly |
+| `flatten_fd_nse.py` | FD data flattening | raw_fd_nse | stock_fundamentals_fd | As needed |
+
+### **📊 Data Quality & Monitoring**
+
+- **Audit Tools**: `audit_mkt_json.py`, `audit_raw.py`, `check_progress.py`
+- **Data Validation**: Automatic null checking and type validation
+- **Error Handling**: Graceful failure with detailed logging
+- **Progress Tracking**: Real-time progress bars and completion summaries
+
+**This architecture ensures clean separation between current market state and historical time series data, enabling efficient querying for both real-time monitoring and technical analysis.**
+
 ## 📚 How it works
 - **Universe refresh** (`screener/universe.py`):
   - Checks `db.is_market_fresh()` (7‑day TTL). If stale, pulls from FinanceDatabase and saves via `db.save_tickers()`.

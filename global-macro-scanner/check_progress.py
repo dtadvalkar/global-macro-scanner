@@ -12,7 +12,7 @@ def check_progress():
         )
         cur = conn.cursor()
         
-        tables = ['raw_fd_nse', 'raw_ibkr_nse', 'raw_yf_nse', 'prices_daily']
+        tables = ['raw_fd_nse', 'raw_ibkr_nse', 'raw_yf_nse', 'prices_daily', 'raw_ibkr_price_snaps', 'current_market_data']
         for t in tables:
             cur.execute(f"SELECT count(*) FROM {t}")
             count = cur.fetchone()[0]

@@ -242,32 +242,101 @@ async def ingest_all_fd_nse():
     conn.close()
     print(f"Successfully ingested {len(batch_data)} NSE stocks from FinanceDatabase.")
 
-async def ingest_multi_ohlcv(master_ids):
-    sfx_map = {get_suffixes(mid)["yf"]: mid for mid in master_ids}
-    yf_symbols = list(sfx_map.keys())
-    print(f"\n[YF] Bulk Downloading OHLCV (1 month)...")
-    df = yf.download(yf_symbols, period="1mo", interval="1d", auto_adjust=False, group_by='ticker')
-    if df.empty: return
+async def ingest_multi_ohlcv(master_ids, period="2y"):
+    """Download OHLCV data for multiple tickers using bulk YFinance download."""
+    # Convert master tickers to YFinance format (.NSE -> .NS)
+    yf_symbols = []
+    master_to_yf_map = {}
+
+    for master_id in master_ids:
+        # Convert RELIANCE.NSE -> RELIANCE.NS for YFinance
+        base = master_id.split('.')[0]
+        yf_symbol = f"{base}.NS"
+        yf_symbols.append(yf_symbol)
+        master_to_yf_map[yf_symbol] = master_id
+
+    print(f"\n[YF] Bulk Downloading OHLCV ({period}) for {len(yf_symbols)} tickers...")
+    print(f"   Sample conversions: {list(master_to_yf_map.items())[:3]}")
+
+    try:
+        # Use bulk download with threading to avoid rate limits - ONE SHOT APPROACH
+        data_hist = yf.download(
+            tickers=" ".join(yf_symbols),
+            period=period,
+            interval="1d",
+            auto_adjust=False,
+            progress=False,
+            threads=True,
+        )
+    except Exception as e:
+        print(f"   ❌ Bulk download failed: {e}")
+        return
+
+    if data_hist.empty:
+        print("   ❌ No data downloaded from YFinance")
+        return
+
     batch_data = []
-    for symbol in yf_symbols:
-        master_id = sfx_map[symbol]
+    successful_tickers = 0
+
+    for yf_symbol in yf_symbols:
+        master_id = master_to_yf_map[yf_symbol]
         try:
-            ticker_df = df[symbol].dropna()
-            for date, row in ticker_df.iterrows():
-                batch_data.append((master_id, date.date(), float(row['Open']), float(row['High']), float(row['Low']), float(row['Close']), float(row['Adj Close']), int(row['Volume']), 'yf'))
-        except: continue
-    
-    conn = psycopg2.connect(dbname=DB_CONFIG['db_name'], user=DB_CONFIG['db_user'], password=DB_CONFIG['db_pass'], host=DB_CONFIG['db_host'], port=DB_CONFIG['db_port'])
+            # Check if this symbol has data in the result
+            if hasattr(data_hist, 'columns') and len(data_hist.columns) > 0:
+                # MultiIndex columns case
+                if yf_symbol in data_hist.columns.levels[0]:
+                    ticker_df = data_hist[yf_symbol].dropna()
+                    if not ticker_df.empty:
+                        for date, row in ticker_df.iterrows():
+                            batch_data.append((
+                                master_id, date.date(),
+                                float(row['Open']), float(row['High']), float(row['Low']),
+                                float(row['Close']), float(row['Adj Close']), int(row['Volume']),
+                                'yf'
+                            ))
+                        successful_tickers += 1
+                        print(f"   ✓ {yf_symbol} -> {len(ticker_df)} days")
+                    else:
+                        print(f"   ⚠ {yf_symbol} -> Empty data")
+                else:
+                    print(f"   ❌ {yf_symbol} -> Not found in results")
+            else:
+                print(f"   ❌ {yf_symbol} -> Invalid data structure")
+
+        except Exception as e:
+            print(f"   ❌ Error processing {yf_symbol}: {e}")
+            continue
+
+    if batch_data:
+        try:
+            conn = psycopg2.connect(**DB_CONFIG)
+            cur = conn.cursor()
+            execute_values(cur, f"INSERT INTO {TBL_DAILY} (ticker, trade_date, open, high, low, close, adj_close, volume, source) VALUES %s ON CONFLICT (ticker, trade_date, source) DO NOTHING", batch_data)
+            conn.commit()
+            cur.close()
+            conn.close()
+            print(f"\n   ✅ SUCCESS: Ingested {len(batch_data)} OHLCV rows from {successful_tickers}/{len(yf_symbols)} tickers")
+            print(f"   📊 Average {len(batch_data)/successful_tickers:.0f} days per ticker")
+        except Exception as e:
+            print(f"   ❌ Database error: {e}")
+    else:
+        print("   ❌ No valid OHLCV data to ingest")
+
+def get_fundamentals_tickers():
+    """Get all tickers from stock_fundamentals table."""
+    conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
-    execute_values(cur, f"INSERT INTO {TBL_DAILY} (ticker, trade_date, open, high, low, close, adj_close, volume, source) VALUES %s ON CONFLICT (ticker, trade_date, source) DO NOTHING", batch_data)
-    conn.commit()
+    cur.execute("SELECT ticker FROM stock_fundamentals ORDER BY ticker")
+    tickers = [row[0] for row in cur.fetchall()]
     cur.close()
     conn.close()
-    print(f"   Ingested {len(batch_data)} OHLCV rows.")
+    return tickers
 
 async def main_fd_only():
     """Modular function to ingest only FinanceDatabase NSE data."""
     await ingest_all_fd_nse()
+
 
 async def main_ibkr_only(master_ids=None):
     """Modular function to ingest only IBKR data for given tickers."""
@@ -293,5 +362,45 @@ async def run_data_audit():
     await ingest_multi_ohlcv(MASTER_IDS)
     print("\n[COMPLETE] All data successfully stored in PostgreSQL.")
 
+async def collect_yfinance_for_fundamentals_tickers(period="2y"):
+    """Collect YFinance OHLCV data for all tickers in stock_fundamentals table."""
+    print("\n[YFINANCE COLLECTION] Starting for all fundamentals tickers...")
+    print("="*60)
+
+    # Get tickers from fundamentals table
+    fundamentals_tickers = get_fundamentals_tickers()
+    total_tickers = len(fundamentals_tickers)
+    print(f"Found {total_tickers} tickers in stock_fundamentals")
+
+    if total_tickers == 0:
+        print("No tickers found in stock_fundamentals table!")
+        return
+
+    # Collect YFinance data (bulk download)
+    print(f"\nDownloading {period} of OHLCV data...")
+    await ingest_multi_ohlcv(fundamentals_tickers, period=period)
+
+    print("\n" + "="*60)
+    print(f"[COMPLETE] YFinance data collected for {total_tickers} tickers")
+    print("Data stored in: prices_daily table with source='yf'")
+
+async def collect_yfinance_for_ticker_list(ticker_list, period="2y"):
+    """Collect YFinance OHLCV data for a custom list of tickers."""
+    print(f"\n[YFINANCE COLLECTION] Starting for {len(ticker_list)} custom tickers...")
+    print("="*60)
+
+    if not ticker_list:
+        print("No tickers provided!")
+        return
+
+    # Collect YFinance data (bulk download)
+    print(f"Downloading {period} of OHLCV data...")
+    await ingest_multi_ohlcv(ticker_list, period=period)
+
+    print("\n" + "="*60)
+    print(f"[COMPLETE] YFinance data collected for {len(ticker_list)} tickers")
+    print("Data stored in: prices_daily table with source='yf'")
+
 if __name__ == "__main__":
+    # Default behavior: test with 3 tickers
     asyncio.run(run_data_audit())
