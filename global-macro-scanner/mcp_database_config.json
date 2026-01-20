@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "postgres-db": {
+      "command": "npx",
+      "args": ["@ahmetkca/mcp-server-postgres", "postgresql://postgres:postgres@localhost:5432/market_scanner"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://postgres:postgres@localhost:5432/market_scanner"
+      }
+    }
+  }
+}

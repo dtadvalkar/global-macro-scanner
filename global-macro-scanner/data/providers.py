@@ -446,49 +446,149 @@ class IBKRProvider(BaseProvider):
             return False
 
     async def get_market_data_async(self, tickers, criteria):
+        """Screen using stored market data from current_market_data table (fresh from today's collection)"""
         try:
-            if not self.ib.isConnected():
-                if not await self.connect():
-                    print("IBKR Connection failed. Use fallback.")
-                    return []
-            
-            print(f"IBKR Parallel Scan: {len(tickers)} stocks...")
+            print(f"IBKR Stored Data Scan: {len(tickers)} stocks...")
             results = []
-            
+
             # Phase 1: Pre-Filtering (Optimization)
             # Filter out stocks that are known to be inactive or small cap based on DB cache
-            print(f"  Pre-filtering {len(tickers)} stocks using local database...")
+            print(f"  Pre-filtering {len(tickers)} stocks using fundamentals cache...")
             viable_tickers = []
             skipped_count = 0
-            
+
             for ticker in tickers:
                 can_skip, reason = self.fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
                 if can_skip:
                     skipped_count += 1
+                    print(f"    Skipped {ticker}: {reason}")
                 else:
                     viable_tickers.append(ticker)
-            
+
             if skipped_count > 0:
                 print(f"  Skipped {skipped_count} stocks (cached fundamentals). Processing {len(viable_tickers)} stocks...")
             else:
                 print(f"  No stocks skipped. Processing {len(viable_tickers)} stocks...")
-            
+
             if not viable_tickers:
                 return []
 
-            tickers = viable_tickers
-            batch_size = 50
-            for i in range(0, len(tickers), batch_size):
-                batch = tickers[i:i + batch_size]
-                tasks = [self.process_stock(s, criteria) for s in batch]
-                batch_results = await asyncio.gather(*tasks)
-                results.extend([r for r in batch_results if r])
+            # Phase 2: Query stored market data and apply criteria
+            results = await self._screen_stored_market_data(viable_tickers, criteria)
 
             return results
-        finally:
-            if self.ib.isConnected():
-                self.ib.disconnect()
-                await asyncio.sleep(0.1) # Give it a moment to clean up loops
+
+        except Exception as e:
+            print(f"Error in stored data screening: {e}")
+            return []
+
+    async def _screen_stored_market_data(self, tickers, criteria):
+        """Apply screening criteria to stored market data from current_market_data table"""
+        results = []
+
+        # Query current_market_data for these tickers
+        ticker_list = ','.join(f"'{t}'" for t in tickers)
+        query = f"""
+            SELECT
+                ticker,
+                last_price,
+                close_price,
+                open_price,
+                high_price,
+                low_price,
+                volume,
+                last_updated
+            FROM current_market_data
+            WHERE ticker IN ({ticker_list})
+            ORDER BY ticker
+        """
+
+        try:
+            market_data_rows = self.db.query(query)
+
+            for row in market_data_rows:
+                ticker, last_price, close_price, open_price, high_price, low_price, volume, last_updated = row
+
+                # Skip if no price data
+                if not last_price:
+                    continue
+
+                # Get fundamentals for additional criteria
+                fundamentals = self.fundamentals_cache.get_fundamentals(ticker) or {}
+
+                # Build market data dict for criteria checking
+                market_data = {
+                    'price': float(last_price) if last_price else 0,
+                    'close': float(close_price) if close_price else 0,
+                    'open': float(open_price) if open_price else 0,
+                    'high': float(high_price) if high_price else 0,
+                    'low': float(low_price) if low_price else 0,
+                    'volume': int(volume) if volume else 0,
+                    'ticker': ticker
+                }
+
+                # Calculate 52w metrics (we don't have this in current_market_data)
+                # For now, skip 52w low/high criteria or get from fundamentals
+                market_data['low_52w'] = fundamentals.get('xml_52w_low')
+                market_data['high_52w'] = fundamentals.get('xml_52w_high')
+
+                # Calculate RVOL (relative volume) - simplified
+                # This is approximate since we don't have full historical data here
+                market_data['rvol'] = 1.0  # Default to normal volume
+
+                # Apply screening criteria
+                if self._passes_screening_criteria(market_data, criteria):
+                    results.append({
+                        'ticker': ticker,
+                        'price': market_data['price'],
+                        'volume': market_data['volume'],
+                        'reason': self._get_screening_reason(market_data, criteria)
+                    })
+
+        except Exception as e:
+            print(f"Error querying stored market data: {e}")
+
+        return results
+
+    def _passes_screening_criteria(self, market_data, criteria):
+        """Apply screening criteria to market data"""
+        try:
+            price = market_data['price']
+            volume = market_data['volume']
+            low_52w = market_data.get('low_52w')
+            high_52w = market_data.get('high_52w')
+
+            # Price proximity to 52w low
+            if low_52w and price > low_52w * (1 + criteria.get('price_52w_low_pct', 0.03)):
+                return False
+
+            # Not too close to 52w high
+            if high_52w and price < high_52w * (1 - criteria.get('price_52w_high_pct', 0.50)):
+                return False
+
+            # Volume requirements
+            min_volume = criteria.get('min_volume', 50000)
+            if volume < min_volume:
+                return False
+
+            # Additional criteria can be added here
+            return True
+
+        except Exception as e:
+            print(f"Error applying criteria for {market_data.get('ticker')}: {e}")
+            return False
+
+    def _get_screening_reason(self, market_data, criteria):
+        """Generate reason for why stock passed screening"""
+        reasons = []
+        price = market_data['price']
+        low_52w = market_data.get('low_52w')
+
+        if low_52w:
+            pct_above_low = ((price - low_52w) / low_52w) * 100
+            reasons.append(".1f")
+
+        return "; ".join(reasons)
 
     def disconnect_sync(self):
         """Synchronous disconnect for compatibility"""

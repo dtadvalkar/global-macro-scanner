@@ -1,0 +1,32 @@
+# Global Macro Scanner Requirements
+# Core dependencies for the trading scanner application
+
+# Database
+psycopg2-binary==2.9.11
+
+# Financial Data APIs
+yfinance==0.2.28
+financedatabase==2.0.3
+ib-insync==0.9.86
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Async Programming
+asyncio-mqtt==0.16.1
+
+# Web/HTTP
+requests==2.31.0
+
+# Utilities
+python-telegram-bot==20.7
+
+# Development/Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# Optional: For enhanced data analysis
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.17.0
