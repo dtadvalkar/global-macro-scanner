@@ -10,8 +10,7 @@ import time
 import json
 import os
 from datetime import datetime, timedelta
-import psycopg2
-from config import DB_CONFIG
+from db import get_db
 import hashlib
 
 class FundamentalCacheManager:
@@ -23,39 +22,43 @@ class FundamentalCacheManager:
     Impact: Eliminates 80-90% of API calls through early filtering
     """
 
-    def __init__(self, db_config=None, use_database=True):
+    def __init__(self, use_database=True):
         self.use_database = use_database
         if use_database:
-            self.db_config = self._normalize_db_config(db_config or DB_CONFIG)
+            self.db = get_db()
             self.memory_cache = {}  # Fast in-memory cache
             self.ensure_table_exists()
         else:
+            self.db = None
             self.memory_cache = {}  # Only use in-memory cache
 
-    def _normalize_db_config(self, config):
-        """Normalize database config for psycopg2 compatibility"""
-        normalized = config.copy()
-        # Map common parameter names to psycopg2 expected names
-        param_mapping = {
-            'db_name': 'database',
-            'db_user': 'user',
-            'db_pass': 'password',
-            'db_host': 'host',
-            'db_port': 'port'
-        }
-        for old_key, new_key in param_mapping.items():
-            if old_key in normalized:
-                normalized[new_key] = normalized.pop(old_key)
-        return normalized
-
     def ensure_table_exists(self):
-        """Create the fundamentals table with proper indexes"""
+        """Create the fundamentals table with proper indexes, or skip if FinanceDatabase table exists"""
         try:
-            conn = psycopg2.connect(**self.db_config)
-            cur = conn.cursor()
+            # Check if stock_fundamentals table exists and has FinanceDatabase columns
+            table_exists = self.db.query("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_name = 'stock_fundamentals'
+                )
+            """, fetch='one')
 
-            # Main fundamentals table
-            cur.execute("""
+            if table_exists and table_exists[0]:
+                # Check if it has our FinanceDatabase columns (mkt_cap_usd, exchange_code, etc.)
+                has_fd_columns = self.db.query("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'stock_fundamentals'
+                        AND column_name = 'mkt_cap_usd'
+                    )
+                """, fetch='one')
+
+                if has_fd_columns and has_fd_columns[0]:
+                    print("✅ stock_fundamentals table exists with FinanceDatabase schema - skipping creation")
+                    return
+
+            # Create table only if it doesn't exist with FinanceDatabase schema
+            self.db.execute("""
                 CREATE TABLE IF NOT EXISTS stock_fundamentals (
                     ticker VARCHAR(20) PRIMARY KEY,
                     symbol VARCHAR(20),                    -- Clean symbol without suffix
@@ -79,9 +82,6 @@ class FundamentalCacheManager:
                 CREATE INDEX IF NOT EXISTS idx_fundamentals_active ON stock_fundamentals(is_active) WHERE is_active = TRUE;
             """)
 
-            conn.commit()
-            cur.close()
-            conn.close()
             print("stock_fundamentals table ready")
 
         except Exception as e:
@@ -142,10 +142,10 @@ class FundamentalCacheManager:
             cur = conn.cursor()
 
             cur.execute("""
-                SELECT symbol, exchange, market_cap_usd, sector, industry,
-                       currency, country, last_updated, data_source, is_active, metadata
+                SELECT ticker, exchange_code, mkt_cap_usd, industry_trbc, industry_naics,
+                       price_currency, country_code, last_fundamental_update, 'financedatabase', true, null
                 FROM stock_fundamentals
-                WHERE ticker = %s AND is_active = TRUE
+                WHERE ticker = %s
             """, (ticker,))
 
             result = cur.fetchone()
@@ -330,10 +330,10 @@ class FundamentalCacheManager:
             placeholders = ','.join(['%s'] * len(tickers))
 
             cur.execute(f"""
-                SELECT ticker, symbol, exchange, market_cap_usd, sector, industry,
-                       currency, country, last_updated, data_source, is_active, metadata
+                SELECT ticker, ticker, exchange_code, mkt_cap_usd, industry_trbc, industry_naics,
+                       price_currency, country_code, last_fundamental_update, 'financedatabase', true, null
                 FROM stock_fundamentals
-                WHERE ticker IN ({placeholders}) AND is_active = TRUE
+                WHERE ticker IN ({placeholders})
             """, tickers)
 
             results = {}

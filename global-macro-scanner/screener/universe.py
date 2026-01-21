@@ -53,43 +53,10 @@ def get_universe(markets):
                 if tickers:
                     # Save to Tickers table (Source of Truth)
                     db.save_tickers(db_key, tickers)
-                    
-                    # NEW: Save Metadata to stock_fundamentals table
-                    # This avoids yfinance lookups during the scan!
-                    print(f"  Syncing metadata for {len(tickers)} {db_key} tickers...")
-                    from data.cache_manager import FundamentalCacheManager
-                    cache = FundamentalCacheManager()
-                    
-                    import pandas as pd
-                    print(f"  Building fundamental records for {len(tickers)} tickers...")
-                    fundamentals_list = []
-                    for s, row in selection.iterrows():
-                        try:
-                            ticker = f"{s}{suffix}" if not s.endswith(suffix) else s
-                            
-                            mcap_raw = row.get('market_cap', 0)
-                            try:
-                                mcap = float(mcap_raw) if not (pd.isna(mcap_raw) or mcap_raw == '') else 0
-                            except:
-                                mcap = 0
-                            
-                            fundamentals_list.append({
-                                'ticker': ticker,
-                                'symbol': s,
-                                'exchange': db_key,
-                                'market_cap_usd': int(mcap),
-                                'sector': str(row.get('sector', 'Unknown')),
-                                'industry': str(row.get('industry', 'Unknown')),
-                                'currency': str(row.get('currency', 'INR' if db_key == 'NSE' else 'USD')),
-                                'country': str(row.get('country', 'India' if db_key == 'NSE' else 'USA')),
-                                'is_active': True
-                            })
-                        except Exception as inner_e:
-                            print(f"    Error building record for {s}: {inner_e}")
-                    
-                    print(f"  Attempting batch insert of {len(fundamentals_list)} records...")
-                    cache.set_fundamentals_batch(fundamentals_list, data_source='financedatabase')
-                    print(f"  ✅ Sync Complete: {len(tickers)} {db_key} tickers & metadata stored.")
+
+                    # SKIP: Fundamentals caching - we already have data from FinanceDatabase
+                    # The stock_fundamentals table is already populated with 81 columns of FD data
+                    print(f"  ✅ Skipping fundamentals sync - data already exists in stock_fundamentals table")
                 else:
                     print(f"  Warning: No tickers found for {db_key} in FinanceDatabase.")
                 

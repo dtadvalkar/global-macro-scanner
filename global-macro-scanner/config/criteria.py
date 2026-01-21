@@ -35,7 +35,7 @@ CRITERIA = {
     # ============================================
     # 1. PRICE & MOMENTUM (The Anchor)
     # ============================================
-    'price_52w_low_pct': 1.01,          # [IMPLEMENTED] Price must be within 1% of 52-week low (mean reversion setup)
+    'price_52w_low_pct': 1.03,          # [IMPLEMENTED] Price must be within 3% of 52-week low (mean reversion setup)
     'price_52w_high_pct': 0.50,         # [CLIENT-SIDE] Price must be at least 50% below 52-week high (avoid dead cats)
     'min_history_days': 250,             # [CLIENT-SIDE] Must have ~1 year of data to confirm reliable low (checked in providers)
 
@@ -43,7 +43,7 @@ CRITERIA = {
     # 2. VOLUME & LIQUIDITY (The "Life" Signal)
     # ============================================
     # A stock must meet AT LEAST ONE of these to show it has "Life":
-    'min_volume': 100000,               # [IMPLEMENTED] Condition A: Good daily liquidity (absolute volume threshold)
+    'min_volume': 50000,                # [IMPLEMENTED] Condition A: Good daily liquidity (absolute volume threshold)
     'min_rvol': 2.0,                    # [IMPLEMENTED] Condition B: Volume Spike (2x 30-day Avg, calculated in providers)
     'min_avg_volume_20d': 50000,        # [CLIENT-SIDE] Ensure consistent liquidity (20-day avg, requires full history)
     'max_rvol': 20.0,                   # [CLIENT-SIDE] Filter out extreme anomalies (likely data errors)
@@ -54,11 +54,11 @@ CRITERIA = {
     # RSI - Relative Strength Index
     'rsi_enabled': True,                # [IMPLEMENTED] Enable RSI filtering for momentum confirmation
     'rsi_min': 20,                      # [IMPLEMENTED] RSI > 20 (oversold, but not dead)
-    'rsi_max': 45,                      # [IMPLEMENTED] RSI < 45 (avoid neutral/overbought)
+    'rsi_max': 50,                      # [IMPLEMENTED] RSI < 50 (avoid neutral/overbought)
 
     # Moving Averages - Trend Context
     'ma_enabled': True,                 # [IMPLEMENTED] Enable MA filtering for trend support
-    'price_vs_sma50_pct': 0.97,         # [IMPLEMENTED] Price within 3% of 50-day SMA (close support)
+    'price_vs_sma50_pct': 0.95,         # [IMPLEMENTED] Price within 5% of 50-day SMA (reasonable support)
     'sma50_vs_sma200_pct': 0.93,        # [IMPLEMENTED] 50-day SMA within 7% of 200-day (avoid downtrends)
 
     # Volatility - ATR (Average True Range)

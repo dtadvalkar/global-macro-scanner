@@ -30,6 +30,87 @@ pip install -r requirements.txt
 # TELEGRAM_TOKEN, CHAT_ID (optional)
 ```
 
+## 📁 Project Structure
+
+```
+global-macro-scanner/
+├── main.py                          # Main entry point for daily pipeline
+├── README.md                        # This documentation
+├── implementation_plan.md           # Detailed implementation notes
+├── requirements.txt                 # Python dependencies
+├── .env                            # Environment variables (not in git)
+│
+├── config/                         # Configuration files
+│   ├── __init__.py
+│   ├── markets.py                  # Market definitions and settings
+│   ├── criteria.py                 # Screening criteria and thresholds
+│   └── settings.py                 # Application settings
+│
+├── alerts/                         # Notification systems
+│   └── telegram.py                 # Telegram bot integration
+│
+├── data/                           # Data management modules
+│   ├── cache_manager.py            # Database caching for fundamentals
+│   ├── providers.py                # Data provider interfaces
+│   └── currency.py                 # Currency handling utilities
+│
+├── storage/                        # Database and persistence
+│   ├── database.py                 # Database connection utilities
+│   └── csvlogging.py               # CSV logging for results
+│
+├── screener/                       # Stock screening logic
+│   ├── core.py                     # Main screening algorithms
+│   ├── universe.py                 # Universe building and filtering
+│   └── ibkr/                       # IBKR-specific screening
+│       └── ib_scanner.py           # IBKR data provider
+│
+├── scripts/                        # Organized scripts by purpose
+│   ├── etl/                        # Data extraction/transformation/load
+│   │   ├── yfinance/               # YFinance data processing
+│   │   │   ├── collect_historical_yfinance.py
+│   │   │   └── test_raw_ingestion.py
+│   │   ├── ibkr/                   # IBKR data processing
+│   │   │   ├── collect_daily_ibkr_market_data.py
+│   │   │   ├── flatten_ibkr_market_data.py
+│   │   │   └── migrate_ib_async.py
+│   │   └── finance_db/             # FinanceDatabase processing
+│   │       ├── flatten_fd_nse.py
+│   │       └── analyze_nse_market_caps.py
+│   │
+│   ├── analysis/                   # Data analysis and inspection
+│   │   ├── audit_mkt_json.py
+│   │   ├── inspect_mkt_data.py
+│   │   ├── list_yf_fields.py
+│   │   └── extract_ratios.py
+│   │
+│   ├── testing/                    # Test and audit scripts
+│   │   ├── check_progress.py
+│   │   ├── test_offline_screener.py
+│   │   ├── audit_high_fidelity.py
+│   │   └── final_audit_live.py
+│   │
+│   └── utils/                      # Utility and helper scripts
+│       ├── quick_port_check.py
+│       ├── kill_locks.py
+│       ├── reset_db_schema.py
+│       └── orchestrate_ibkr_pipeline.py
+│
+├── main/                           # Alternative main entry points
+│   ├── main_intelligent.py         # Intelligent scheduling
+│   └── main-paper.py               # Paper trading mode
+│
+├── data_files/                     # Data files (XML, JSON, CSV, logs)
+│   ├── raw/                        # Raw data from APIs
+│   │   ├── xml/                    # IBKR XML responses
+│   │   └── json/                   # JSON data files
+│   └── processed/                  # Processed data
+│       ├── csv/                    # CSV exports and reports
+│       └── logs/                   # Log files and output
+│
+└── backups/                        # Backup files
+    └── ib_insync/                  # IBKR backup files
+```
+
 ## 🚀 Running the scanner
 ```bash
 # Live full‑universe scan (default)
@@ -43,6 +124,32 @@ The script will:
 2. Load **actionable** tickers (`ACTIVE` + those whose `last_updated` > 200 days).
 3. Scan via IBKR (parallel, batch size 50) and fall back to YFinance where needed.
 4. Update the database with any status changes.
+
+## 🗄️ Database Interface
+
+### Centralized Database Access
+The project uses a centralized database interface (`db.py`) for all database operations:
+
+```bash
+# Health check and diagnostics
+python db.py health          # Check database status
+python db.py validate        # Data integrity validation
+python db.py info --table stock_fundamentals  # Table details
+
+# Programmatic usage
+from db import get_db
+db = get_db()
+result = db.query("SELECT * FROM stock_fundamentals LIMIT 5")
+```
+
+### MCP Server (Optional)
+For interactive database exploration, you can set up an MCP server:
+```bash
+pip install mcp-server-postgres
+# Configure in Cursor IDE for natural language queries
+```
+
+See `setup_mcp_database.md` for detailed MCP setup instructions.
 
 ## 🗄️ Database Schema
 
@@ -145,7 +252,7 @@ Raw Data Sources → Archival Layer → Analytical Layer → Application Layer
 
 **Script**: `collect_historical_yfinance.py`
 ```bash
-python collect_historical_yfinance.py
+python scripts/etl/yfinance/collect_historical_yfinance.py
 ```
 
 **Features**:
@@ -164,7 +271,7 @@ stock_fundamentals.ticker → YFinance API → prices_daily (OHLCV history)
 
 **Script**: `flatten_ibkr_market_data.py`
 ```bash
-python flatten_ibkr_market_data.py
+python scripts/etl/ibkr/flatten_ibkr_market_data.py
 ```
 
 **Features**:
@@ -181,12 +288,12 @@ raw_ibkr_nse.mkt_data (JSON) → current_market_data (structured)
 #### **3. Audit & Inspection Tools**
 **IBKR Market Data Audit**: `audit_mkt_json.py`
 ```bash
-python audit_mkt_json.py  # Displays extracted market data in table format
+python scripts/analysis/audit_mkt_json.py  # Displays extracted market data in table format
 ```
 
 **Database Health Check**: `check_progress.py`
 ```bash
-python check_progress.py  # Shows row counts for all tables
+python scripts/testing/check_progress.py  # Shows row counts for all tables
 ```
 
 ### **🔄 Data Relationships & Flow**
