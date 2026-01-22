@@ -142,25 +142,28 @@ class FundamentalCacheManager:
             # Check database - use centralized db client
             result = self.db.query("""
                 SELECT ticker, exchange_code, mkt_cap_usd, industry_trbc, industry_naics,
-                       price_currency, country_code, last_fundamental_update, 'financedatabase', true, null
+                       price_currency, country_code, last_fundamental_update,
+                       xml_52w_low, xml_52w_high
                 FROM stock_fundamentals
                 WHERE ticker = %s
             """, (ticker,), fetch='one')
 
             if result:
                 fundamentals = {
-                    'ticker': ticker,
-                    'symbol': result[0],
+                    'ticker': result[0],
+                    'symbol': result[0].split('.')[0], # Derive symbol from ticker
                     'exchange': result[1],
-                    'market_cap_usd': result[2],
+                    'market_cap_usd': float(result[2]) if result[2] is not None else 0.0,
                     'sector': result[3],
                     'industry': result[4],
                     'currency': result[5],
                     'country': result[6],
                     'last_updated': result[7],
-                    'data_source': result[8],
-                    'is_active': result[9],
-                    'metadata': result[10] or {}
+                    'xml_52w_low': float(result[8]) if result[8] is not None else None,
+                    'xml_52w_high': float(result[9]) if result[9] is not None else None,
+                    'data_source': 'ibkr',
+                    'is_active': True,
+                    'metadata': {}
                 }
 
                 # Cache in memory

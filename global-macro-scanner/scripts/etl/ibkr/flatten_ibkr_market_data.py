@@ -22,6 +22,7 @@ import json
 import sys
 import io
 import os
+from datetime import datetime, timezone
 
 # Add project root to path so 'db' module can be found
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
@@ -49,7 +50,7 @@ def flatten_ibkr_market_data():
     result = db.query("SELECT MAX(last_updated) FROM current_market_data", fetch='one')
     watermark = result[0] if result and result[0] else datetime(1970, 1, 1)
     
-    print(f"🕒 Watermark (last processed): {watermark}")
+    print(f"🕒 Watermark (last processed): {watermark} (Type: {type(watermark)})")
 
     # 2. Query DELTA from ibkr_market_data
     # Use COALESCE to handle data in top-level columns or nested in JSON
@@ -69,6 +70,13 @@ def flatten_ibkr_market_data():
         AND last_updated > %s
         ORDER BY last_updated ASC
     """, (watermark,))
+    
+    if not rows:
+        # Check if there are any rows in ibkr_market_data at all for debugging
+        total_ibkr = db.query("SELECT COUNT(*) FROM ibkr_market_data", fetch='one')
+        print(f"  [DEBUG] Total rows in ibkr_market_data: {total_ibkr[0]}")
+        sample_time = db.query("SELECT MAX(last_updated) FROM ibkr_market_data", fetch='one')
+        print(f"  [DEBUG] Max last_updated in ibkr_market_data: {sample_time[0]}")
 
     total_rows = len(rows) if rows else 0
     print(f"📊 Found {total_rows} new records in IBKR market data")
@@ -89,23 +97,19 @@ def flatten_ibkr_market_data():
             if ticker.count('.NS') > 1:
                 ticker = ticker.replace('.NS.NS', '.NS')
 
-            # Only include if we have at least a last price
-            if last_price is not None:
-                flattened_data.append({
-                    'ticker': ticker,
-                    'last_price': last_price,
-                    'close_price': close_price,
-                    'open_price': open_price,
-                    'high_price': high_price,
-                    'low_price': low_price,
-                    'volume': volume,
-                    'last_updated': last_updated
-                })
-                processed_tickers.add(ticker)
-            else:
-                # Still add it with whatever we have to update the watermark
-                # or just skip if we want "price only" in current_market_data
-                pass
+            # Always include the record to ensure the watermark (last_updated) advances,
+            # even if price data is currently missing from IBKR snapshots.
+            flattened_data.append({
+                'ticker': ticker,
+                'last_price': last_price if last_price is not None else close_price,
+                'close_price': close_price,
+                'open_price': open_price,
+                'high_price': high_price,
+                'low_price': low_price,
+                'volume': volume,
+                'last_updated': last_updated
+            })
+            processed_tickers.add(ticker)
 
         except Exception as e:
             print(f"  ❌ Error processing {ticker}: {e}")

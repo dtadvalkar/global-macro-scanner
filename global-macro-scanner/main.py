@@ -19,6 +19,7 @@ USAGE:
     python main.py --skip-collection  # Skip data collection, just screen
 """
 
+import os
 import time
 import asyncio
 import subprocess
@@ -40,7 +41,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 def check_data_freshness():
     """Check if data is fresh enough for screening"""
-    print("🔍 Checking data freshness...")
+    print("[SCAN] Checking data freshness...")
 
     try:
         db = get_db()
@@ -49,7 +50,7 @@ def check_data_freshness():
         result = db.query("""
             SELECT COUNT(*),
                    MAX(last_updated),
-                   EXTRACT(EPOCH FROM (NOW() - MAX(last_updated)))/3600 as hours_old
+                   EXTRACT(EPOCH FROM (NOW() AT TIME ZONE 'utc' - MAX(last_updated)))/3600 as hours_old
             FROM current_market_data
         """, fetch='one')
 
@@ -60,8 +61,8 @@ def check_data_freshness():
 
         print(f"   📊 Current market data: {current_count} records")
         if latest_update:
-            print(f"   🕐 Latest update: {latest_update.strftime('%Y-%m-%d %H:%M UTC')}")
-            print(f"   ⏰ Age: {hours_old:.1f} hours old")
+            print(f"   TIME: {latest_update.strftime('%Y-%m-%d %H:%M UTC')}")
+            print(f"   AGE: {hours_old:.1f} hours old")
 
             if hours_old > 24:
                 print("   ⚠️  WARNING: Current market data is stale (>24 hours)")
@@ -72,10 +73,10 @@ def check_data_freshness():
 
         # Check prices_daily freshness (historical data should exist)
         historical_count = db.get_price_data_count()
-        print(f"   📈 Historical data: {historical_count} records")
+        print(f"   DATA: Historical data: {historical_count} records")
 
         if current_count > 0 and historical_count > 0:
-            print("   ✅ Data freshness check passed")
+            print("   [OK] Data freshness check passed")
             return True
         else:
             print("   ❌ Insufficient data for screening")
@@ -91,10 +92,14 @@ def run_ibkr_collection():
     print("💡 Note: This will run for 10-20 minutes. Let it complete!")
 
     try:
-        # Run the collection script directly (don't capture output to avoid timeout issues)
+        env = os.environ.copy()
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
+        
+        # Run the collection script directly
         result = subprocess.run([
             sys.executable, "scripts/etl/ibkr/collect_daily_ibkr_market_data.py"
-        ], cwd=".")
+        ], cwd=".", env=env)
 
         return result.returncode == 0
 
@@ -107,10 +112,15 @@ def run_ibkr_flattening():
     print("\n🔄 Starting IBKR Data Flattening...")
 
     try:
-        # Run the flattening script
+        env = os.environ.copy()
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
+        
+        # Run the flattening script with captured output
+        # Use errors='replace' to safely handle emojis even if the pipe encoding is mismatched
         result = subprocess.run([
             sys.executable, "scripts/etl/ibkr/flatten_ibkr_market_data.py"
-        ], capture_output=True, text=True, cwd=".")
+        ], capture_output=True, text=True, cwd=".", env=env, errors='replace')
 
         print("IBKR Flattening Output:")
         print(result.stdout)
@@ -142,7 +152,7 @@ def daily_screen(markets=None):
     if catches and not TEST_MODE:
         send_alerts(catches)
 
-    print(f"✅ Scan complete: {len(catches)} catches found")
+    print(f"[OK] Scan complete: {len(catches)} catches found")
     return catches
 
 async def run_daily_pipeline(filtered_markets, skip_collection=False, skip_flattening=False):

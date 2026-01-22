@@ -384,6 +384,50 @@ class Database:
 
         return info
 
+    def is_market_fresh(self, market: str, ttl_days: int = 7, min_count: int = 100) -> bool:
+        """Checks if we have recently updated the universe for this market."""
+        cutoff = datetime.now() - timedelta(days=ttl_days)
+        result = self.query(
+            "SELECT count(*) FROM tickers WHERE market = %s AND last_updated > %s",
+            (market, cutoff),
+            fetch='one'
+        )
+        return result[0] >= min_count if result else False
+
+    def get_actionable_tickers(self, market: str) -> List[str]:
+        """Returns tickers that are either ACTIVE or in parole."""
+        parole_date = datetime.now() - timedelta(days=200) 
+        rows = self.query("""
+            SELECT symbol FROM tickers 
+            WHERE market = %s 
+            AND (status = 'ACTIVE' OR status IS NULL OR last_updated < %s)
+            ORDER BY symbol
+        """, (market, parole_date))
+        return [row[0] for row in rows] if rows else []
+
+    def save_tickers(self, market: str, tickers: List[str]):
+        """Saves or updates tickers in the database (Source of Truth sync)."""
+        now = datetime.now()
+        data = [(s, market, now) for s in tickers]
+        # Use execute_values for efficient batch insertion
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                from psycopg2.extras import execute_values
+                execute_values(
+                    cur,
+                    "INSERT INTO tickers (symbol, market, last_updated) VALUES %s "
+                    "ON CONFLICT (symbol) DO UPDATE SET last_updated = EXCLUDED.last_updated, market = EXCLUDED.market",
+                    data
+                )
+
+    def update_ticker_status(self, symbol, status, message=None):
+        """Updates the status of a ticker (e.g., 'INACTIVE', 'ACTIVE')"""
+        self.execute("""
+            UPDATE tickers 
+            SET status = %s, status_message = %s, last_updated = %s
+            WHERE symbol = %s
+        """, (status, message, datetime.now(), symbol))
+
     # ============================================================================
     # DATA VALIDATION & HEALTH CHECKS
     # ============================================================================

@@ -161,12 +161,13 @@ class OptimizedYFinanceProvider(BaseProvider):
                     continue
 
             # Then check fundamentals
-            can_skip, reason = self.fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
-            if can_skip:
-                print(f"Skipped {ticker}: {reason}")
-                skipped_by_fundamentals += 1
-            else:
-                viable_tickers.append(ticker)
+            # can_skip, reason = self.fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
+            # if can_skip:
+            #     print(f"Skipped {ticker}: {reason}")
+            #     skipped_by_fundamentals += 1
+            # else:
+            #     viable_tickers.append(ticker)
+            viable_tickers.append(ticker)
 
         efficiency_msg = f" ({len(viable_tickers)}/{len(tickers)} viable, {skipped_by_fundamentals} fundamentals, {skipped_by_failure_cache} failed cache)"
         print(f"Pre-filtering complete{efficiency_msg}")
@@ -458,12 +459,13 @@ class IBKRProvider(BaseProvider):
             skipped_count = 0
 
             for ticker in tickers:
-                can_skip, reason = self.fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
-                if can_skip:
-                    skipped_count += 1
-                    print(f"    Skipped {ticker}: {reason}")
-                else:
-                    viable_tickers.append(ticker)
+                # can_skip, reason = self.fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
+                # if can_skip:
+                #     skipped_count += 1
+                #     print(f"    Skipped {ticker}: {reason}")
+                # else:
+                #     viable_tickers.append(ticker)
+                viable_tickers.append(ticker)
 
             if skipped_count > 0:
                 print(f"  Skipped {skipped_count} stocks (cached fundamentals). Processing {len(viable_tickers)} stocks...")
