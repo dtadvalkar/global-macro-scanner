@@ -2,9 +2,9 @@ import financedatabase as fd
 import os
 import config
 from config import CRITERIA, MARKETS
-from storage.database import DatabaseManager
+from db import get_db
 
-db = DatabaseManager()
+db = get_db()
 
 def get_universe(markets):
     """Get stock universe based on market config with PG caching"""

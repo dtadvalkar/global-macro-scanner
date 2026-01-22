@@ -21,10 +21,15 @@ Table: current_market_data (stores current market snapshots from IBKR)
 import json
 import sys
 import io
+import os
+
+# Add project root to path so 'db' module can be found
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+
 from db import get_db
 
-# Force UTF-8 encoding for stdout to support emojis
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 def create_current_market_data_table():
     """Create the current_market_data table if it doesn't exist."""
@@ -40,99 +45,113 @@ def flatten_ibkr_market_data():
 
     db = get_db()
 
-    # Get all tickers with market data from dedicated table
+    # 1. Get watermark from current_market_data
+    result = db.query("SELECT MAX(last_updated) FROM current_market_data", fetch='one')
+    watermark = result[0] if result and result[0] else datetime(1970, 1, 1)
+    
+    print(f"🕒 Watermark (last processed): {watermark}")
+
+    # 2. Query DELTA from ibkr_market_data
+    # Use COALESCE to handle data in top-level columns or nested in JSON
+    # Nested path observed: market_data -> 'Ticker' -> 'last'
     rows = db.query("""
         SELECT
             ticker,
-            last_price,
-            bid_price,
-            ask_price,
-            volume,
-            market_data->>'open' as open_price,
-            market_data->>'high' as high_price,
-            market_data->>'low' as low_price,
-            market_data->>'close' as close_price,
+            COALESCE(last_price, (market_data->'Ticker'->>'last')::numeric) as price,
+            COALESCE(market_data->>'close', market_data->'Ticker'->>'close')::numeric as close,
+            COALESCE(market_data->>'open', market_data->'Ticker'->>'open')::numeric as open,
+            COALESCE(market_data->>'high', market_data->'Ticker'->>'high')::numeric as high,
+            COALESCE(market_data->>'low', market_data->'Ticker'->>'low')::numeric as low,
+            COALESCE(volume, (market_data->'Ticker'->>'volume')::numeric::bigint) as vol,
             last_updated
         FROM ibkr_market_data
         WHERE market_data IS NOT NULL
-        ORDER BY ticker
-    """)
+        AND last_updated > %s
+        ORDER BY last_updated ASC
+    """, (watermark,))
 
-    total_tickers = len(rows) if rows else 0
+    total_rows = len(rows) if rows else 0
+    print(f"📊 Found {total_rows} new records in IBKR market data")
 
-    print(f"📊 Found {total_tickers} tickers with IBKR market data")
-
-    if total_tickers == 0:
-        print("❌ No market data found to flatten")
-        cur.close()
-        conn.close()
+    if total_rows == 0:
+        print("✅ No new market data to flatten. System is up to date.")
         return
 
     # Process each ticker
     flattened_data = []
+    processed_tickers = set()
 
     for row in rows:
         try:
-            # Data is already extracted from the query
-            ticker, last_price, bid_price, ask_price, volume, open_price, high_price, low_price, close_price, last_updated = row
+            ticker, last_price, close_price, open_price, high_price, low_price, volume, last_updated = row
+
+            # Clean ticker if it has double suffix like .NS.NS
+            if ticker.count('.NS') > 1:
+                ticker = ticker.replace('.NS.NS', '.NS')
 
             # Only include if we have at least a last price
             if last_price is not None:
-                flattened_data.append((
-                    ticker,
-                    last_price,
-                    close_price,
-                    open_price,
-                    high_price,
-                    low_price,
-                    volume
-                ))
-                print(f"  ✓ {ticker}: last={last_price}")
+                flattened_data.append({
+                    'ticker': ticker,
+                    'last_price': last_price,
+                    'close_price': close_price,
+                    'open_price': open_price,
+                    'high_price': high_price,
+                    'low_price': low_price,
+                    'volume': volume,
+                    'last_updated': last_updated
+                })
+                processed_tickers.add(ticker)
             else:
-                print(f"  ⚠ {ticker}: no valid price data")
+                # Still add it with whatever we have to update the watermark
+                # or just skip if we want "price only" in current_market_data
+                pass
 
         except Exception as e:
             print(f"  ❌ Error processing {ticker}: {e}")
             continue
 
-    # Bulk insert flattened data
+    # 3. Upsert flattened data
     if flattened_data:
-        print(f"\n💾 Inserting {len(flattened_data)} records into current_market_data...")
+        print(f"\n💾 Upserting {len(flattened_data)} records into current_market_data...")
 
-        # Clear existing data first (since this is current market state)
-        db.truncate_table("current_market_data")
+        # We use a manual UPSERT loop or a prepared statement to avoid truncating
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                upsert_sql = """
+                    INSERT INTO current_market_data 
+                    (ticker, last_price, close_price, open_price, high_price, low_price, volume, last_updated)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (ticker) 
+                    DO UPDATE SET
+                        last_price = EXCLUDED.last_price,
+                        close_price = EXCLUDED.close_price,
+                        open_price = EXCLUDED.open_price,
+                        high_price = EXCLUDED.high_price,
+                        low_price = EXCLUDED.low_price,
+                        volume = EXCLUDED.volume,
+                        last_updated = EXCLUDED.last_updated
+                    WHERE EXCLUDED.last_updated >= current_market_data.last_updated
+                """
+                batch = [
+                    (d['ticker'], d['last_price'], d['close_price'], d['open_price'], 
+                     d['high_price'], d['low_price'], d['volume'], d['last_updated'])
+                    for d in flattened_data
+                ]
+                cur.executemany(upsert_sql, batch)
+                conn.commit()
+                inserted = cur.rowcount # This might not be accurate for upserts in all PG versions
+        
+        print(f"✅ Successfully flattened/updated {len(flattened_data)} records")
 
-        # Prepare data for bulk insert
-        columns = ['ticker', 'last_price', 'close_price', 'open_price', 'high_price', 'low_price', 'volume']
-        data_dicts = []
-        for row in flattened_data:
-            data_dicts.append(dict(zip(columns, row)))
-
-        # Insert new data using db interface
-        inserted = db.bulk_insert("current_market_data", data_dicts)
-        print(f"✅ Successfully flattened {inserted} IBKR market data records")
-
-        # Show summary
-        result = db.query("SELECT COUNT(*), AVG(last_price), MIN(last_price), MAX(last_price) FROM current_market_data WHERE last_price IS NOT NULL AND last_price > 0", fetch='one')
-        if result:
-            count, avg_price, min_price, max_price = result
-            print("\nSummary:")
-            print(f"   Records: {count}")
-            if count > 0:
-                print(f"   Avg Price: {avg_price:.2f}" if avg_price else "   Avg Price: N/A")
-                if min_price and max_price:
-                    print(f"   Price Range: {min_price:.2f} - {max_price:.2f}")
-                else:
-                    print("   Price Range: N/A")
-        else:
-            print("\nSummary:")
-            print("   No valid price data found")
+        # Show summary of the state
+        result = db.query("SELECT COUNT(*) FROM current_market_data", fetch='one')
+        print(f"\nSummary: current_market_data now has {result[0]} total records")
     else:
         print("❌ No valid data to insert")
 
     print("\n" + "="*50)
     print("🎯 IBKR market data flattening complete!")
-    print("📍 Data stored in: current_market_data table")
     print("="*50)
 
 def extract_numeric(value):

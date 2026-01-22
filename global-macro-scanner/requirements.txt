@@ -21,6 +21,7 @@ requests==2.31.0
 
 # Utilities
 python-telegram-bot==20.7
+python-dotenv==1.0.0
 
 # Development/Testing
 pytest==7.4.3

@@ -6,7 +6,7 @@ from data.currency import usd_market_cap
 from datetime import datetime
 from screening.screening_utils import should_pass_screening, calculate_rsi, calculate_sma, calculate_atr
 from data.cache_manager import FundamentalCacheManager
-from storage.database import DatabaseManager
+from db import get_db
 
 util.patchAsyncio()
 
@@ -29,7 +29,7 @@ class OptimizedYFinanceProvider(BaseProvider):
         self.max_concurrent = max_concurrent
         self.last_request_time = 0
         self.fundamentals_cache = FundamentalCacheManager(use_database=True)
-        self.db = DatabaseManager()
+        self.db = get_db()
         self.failed_stocks_cache = {}  # Cache of stocks that consistently fail
 
     def _rate_limit_wait(self):
@@ -369,7 +369,7 @@ class IBKRProvider(BaseProvider):
         self.client_id = client_id
         self.ib = IB()
         self.fundamentals_cache = FundamentalCacheManager(use_database=True)
-        self.db = DatabaseManager()
+        self.db = get_db()
 
     def _get_exchange_from_symbol(self, symbol):
         """Extract exchange from symbol suffix"""
@@ -504,6 +504,7 @@ class IBKRProvider(BaseProvider):
         """
 
         try:
+            from screening.screening_utils import should_pass_screening
             market_data_rows = self.db.query(query)
 
             for row in market_data_rows:
@@ -516,33 +517,27 @@ class IBKRProvider(BaseProvider):
                 # Get fundamentals for additional criteria
                 fundamentals = self.fundamentals_cache.get_fundamentals(ticker) or {}
 
-                # Build market data dict for criteria checking
-                market_data = {
-                    'price': float(last_price) if last_price else 0,
-                    'close': float(close_price) if close_price else 0,
-                    'open': float(open_price) if open_price else 0,
-                    'high': float(high_price) if high_price else 0,
-                    'low': float(low_price) if low_price else 0,
+                # Build symbol_data for centralized screening
+                symbol_data = {
+                    'symbol': ticker,
+                    'price': float(last_price),
+                    'low_52w': fundamentals.get('xml_52w_low'),
+                    'high_52w': fundamentals.get('xml_52w_high'),
                     'volume': int(volume) if volume else 0,
-                    'ticker': ticker
+                    'rvol': 1.0, # Approximate for stored data
+                    'usd_mcap': (fundamentals.get('market_cap_usd', 0) or 0) / 1e9,
+                    'time': last_updated
                 }
 
-                # Calculate 52w metrics (we don't have this in current_market_data)
-                # For now, skip 52w low/high criteria or get from fundamentals
-                market_data['low_52w'] = fundamentals.get('xml_52w_low')
-                market_data['high_52w'] = fundamentals.get('xml_52w_high')
-
-                # Calculate RVOL (relative volume) - simplified
-                # This is approximate since we don't have full historical data here
-                market_data['rvol'] = 1.0  # Default to normal volume
-
-                # Apply screening criteria
-                if self._passes_screening_criteria(market_data, criteria):
+                # Apply centralized screening logic
+                filtered_result = should_pass_screening(symbol_data, criteria)
+                
+                if filtered_result:
                     results.append({
                         'ticker': ticker,
-                        'price': market_data['price'],
-                        'volume': market_data['volume'],
-                        'reason': self._get_screening_reason(market_data, criteria)
+                        'price': filtered_result['price'],
+                        'volume': filtered_result['volume'],
+                        'reason': self._get_screening_reason(filtered_result, criteria)
                     })
 
         except Exception as e:
@@ -550,43 +545,22 @@ class IBKRProvider(BaseProvider):
 
         return results
 
-    def _passes_screening_criteria(self, market_data, criteria):
-        """Apply screening criteria to market data"""
-        try:
-            price = market_data['price']
-            volume = market_data['volume']
-            low_52w = market_data.get('low_52w')
-            high_52w = market_data.get('high_52w')
-
-            # Price proximity to 52w low
-            if low_52w and price > low_52w * (1 + criteria.get('price_52w_low_pct', 0.03)):
-                return False
-
-            # Not too close to 52w high
-            if high_52w and price < high_52w * (1 - criteria.get('price_52w_high_pct', 0.50)):
-                return False
-
-            # Volume requirements
-            min_volume = criteria.get('min_volume', 50000)
-            if volume < min_volume:
-                return False
-
-            # Additional criteria can be added here
-            return True
-
-        except Exception as e:
-            print(f"Error applying criteria for {market_data.get('ticker')}: {e}")
-            return False
 
     def _get_screening_reason(self, market_data, criteria):
         """Generate reason for why stock passed screening"""
         reasons = []
-        price = market_data['price']
+        price = market_data.get('price', 0)
         low_52w = market_data.get('low_52w')
+        volume = market_data.get('volume', 0)
 
-        if low_52w:
+        if low_52w and low_52w > 0:
             pct_above_low = ((price - low_52w) / low_52w) * 100
-            reasons.append(".1f")
+            reasons.append(f"{pct_above_low:.1f}% from 52w low")
+        else:
+            reasons.append("No 52w low baseline (Volume Catch)")
+
+        if volume > 0:
+            reasons.append(f"Vol: {volume:,}")
 
         return "; ".join(reasons)
 

@@ -124,7 +124,7 @@ SCORING_WEIGHTS = {
 # ============================================
 PRESETS = {
     'conservative': {
-        'price_52w_low_pct': 1.005,      # Within 0.5% of low (very strict)
+        'price_52w_low_pct': 1.03,        # Within % of low (very strict)
         'min_rvol': 3.0,                  # Higher volume spike required
         'rsi_max': 30,                    # More oversold
         'min_avg_volume_20d': 100000,     # Higher liquidity requirement

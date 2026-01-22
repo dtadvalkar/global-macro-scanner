@@ -9,7 +9,7 @@ load_dotenv()
 DB_CONFIG = {
     'db_name': os.getenv("DB_NAME", "global_scanner"),
     'db_user': os.getenv("DB_USER", "postgres"),
-    'db_pass': os.getenv("DB_PASS", "postgres"),
+    'db_pass': os.getenv("DB_PASSWORD", "postgres"),
     'db_host': os.getenv("DB_HOST", "localhost"),
     'db_port': os.getenv("DB_PORT", "5432")
 }
@@ -32,6 +32,6 @@ TELEGRAM = {
 }
 
 # 4. RUNTIME
-TEST_MODE = False                       # Console debugging
+TEST_MODE = False                      # Console debugging
 SCAN_INTERVAL_MINUTES = 30              # Production frequency
 ENABLE_FALLBACKS = False                # Use YFinance fallbacks for missing data (Slower)

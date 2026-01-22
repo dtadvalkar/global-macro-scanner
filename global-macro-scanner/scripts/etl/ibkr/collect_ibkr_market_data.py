@@ -17,7 +17,7 @@ import asyncio
 import json
 import psycopg2
 from ib_insync import IB, Stock, util
-from config import DB_CONFIG
+from db import get_db
 import sys
 import io
 from datetime import datetime
@@ -120,17 +120,10 @@ async def update_market_data_in_db(ticker: str, market_data: dict):
     """Update only the market data column in raw_ibkr_nse table."""
     print(f"[DB] Updating market data for {ticker}...")
 
-    conn = psycopg2.connect(
-        dbname=DB_CONFIG['db_name'],
-        user=DB_CONFIG['db_user'],
-        password=DB_CONFIG['db_pass'],
-        host=DB_CONFIG['db_host'],
-        port=DB_CONFIG['db_port']
-    )
-    cur = conn.cursor()
-
+    db = get_db()
+    
     # Insert/update market data in dedicated table
-    cur.execute("""
+    db.execute("""
         INSERT INTO ibkr_market_data (ticker, market_data, last_price, bid_price, ask_price, volume, avg_volume, last_updated)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (ticker) DO UPDATE SET
@@ -189,22 +182,10 @@ async def collect_market_data_for_tickers(tickers: list):
 def get_universe_tickers():
     """Get all tickers from our investment universe."""
     try:
-        conn = psycopg2.connect(
-            dbname=DB_CONFIG['db_name'],
-            user=DB_CONFIG['db_user'],
-            password=DB_CONFIG['db_pass'],
-            host=DB_CONFIG['db_host'],
-            port=DB_CONFIG['db_port']
-        )
-        cur = conn.cursor()
-
+        db = get_db()
         # Get all tickers from FinanceDatabase (our complete universe)
-        cur.execute("SELECT ticker FROM raw_fd_nse ORDER BY ticker")
-        tickers = [row[0] for row in cur.fetchall()]
-
-        cur.close()
-        conn.close()
-        return tickers
+        rows = db.query("SELECT ticker FROM raw_fd_nse ORDER BY ticker")
+        return [row[0] for row in rows] if rows else []
     except Exception as e:
         print(f"Error getting universe tickers: {e}")
         return []
@@ -212,28 +193,16 @@ def get_universe_tickers():
 def get_tickers_without_market_data():
     """Get tickers that don't have market data yet."""
     try:
-        conn = psycopg2.connect(
-            dbname=DB_CONFIG['db_name'],
-            user=DB_CONFIG['db_user'],
-            password=DB_CONFIG['db_pass'],
-            host=DB_CONFIG['db_host'],
-            port=DB_CONFIG['db_port']
-        )
-        cur = conn.cursor()
-
+        db = get_db()
         # Find tickers in universe that don't have market data
-        cur.execute("""
+        rows = db.query("""
             SELECT fd.ticker
             FROM raw_fd_nse fd
-            LEFT JOIN raw_ibkr_nse ib ON fd.ticker = ib.ticker
-            WHERE ib.mkt_data IS NULL OR ib.ticker IS NULL
+            LEFT JOIN ibkr_market_data ib ON fd.ticker = ib.ticker
+            WHERE ib.market_data IS NULL OR ib.ticker IS NULL
             ORDER BY fd.ticker
         """)
-        tickers = [row[0] for row in cur.fetchall()]
-
-        cur.close()
-        conn.close()
-        return tickers
+        return [row[0] for row in rows] if rows else []
     except Exception as e:
         print(f"Error getting tickers without market data: {e}")
         return []

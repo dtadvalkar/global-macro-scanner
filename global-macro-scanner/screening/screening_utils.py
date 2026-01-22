@@ -42,7 +42,7 @@ def should_pass_screening(symbol_data, criteria=None):
     # ============================================
     # 1. BASIC VALIDATION (Required fields)
     # ============================================
-    if not all([symbol, price > 0, low_52w > 0]):
+    if not symbol or not (price > 0):
         return None
 
     # ============================================
@@ -63,20 +63,22 @@ def should_pass_screening(symbol_data, criteria=None):
     # ============================================
     # 3. PRICE FILTERS
     # ============================================
-    # Price proximity to 52w low (core criterion)
-    if low_52w > 0:
+    # Price proximity to 52w low (Anchor Filter)
+    # DE-COUPLED: If low_52w is missing, we skip this check and allow pass on Volume
+    if low_52w and low_52w > 0:
         pct_from_low = price / low_52w
-        if pct_from_low > criteria.get('price_52w_low_pct', 1.01):
+        if pct_from_low > criteria.get('price_52w_low_pct', 1.03):
             return None
 
         # Optional: Price vs 52w high (avoid dead cats)
-        if 'price_52w_high_pct' in criteria and criteria['price_52w_high_pct'] > 0:
-            if high_52w > 0:
+        if criteria.get('price_52w_high_pct', 0) > 0:
+            if high_52w and high_52w > 0:
                 pct_from_high = price / high_52w
                 if pct_from_high > criteria['price_52w_high_pct']:
                     return None
     else:
-        return None  # Cannot calculate price proximity
+        # Flag that we are missing baseline for reasoning/display
+        pct_from_low = 0
 
     # ============================================
     # 4. VOLUME & LIQUIDITY FILTERS

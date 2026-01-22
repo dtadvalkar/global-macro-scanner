@@ -31,10 +31,11 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 from contextlib import contextmanager
 import json
 
-# Force UTF-8 encoding for stdout to support emojis
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Import config
+from dotenv import load_dotenv
+load_dotenv()
+
 try:
     from config import DB_CONFIG
 except ImportError:

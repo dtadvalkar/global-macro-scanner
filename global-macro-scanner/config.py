@@ -4,8 +4,8 @@ from config.settings import (
     DATA_SOURCE, IBKR_CONFIG, TELEGRAM, 
     TEST_MODE, SCAN_INTERVAL_MINUTES, DB_CONFIG
 )
-from storage.database import DatabaseManager
+from db import get_db
 import financedatabase as fd
 
-db = DatabaseManager()
+db = get_db()
 

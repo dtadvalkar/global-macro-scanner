@@ -12,6 +12,7 @@ import os
 from datetime import datetime, timedelta
 from db import get_db
 import hashlib
+import psycopg2
 
 class FundamentalCacheManager:
     """
@@ -138,19 +139,13 @@ class FundamentalCacheManager:
 
         # Check database
         try:
-            conn = psycopg2.connect(**self.db_config)
-            cur = conn.cursor()
-
-            cur.execute("""
+            # Check database - use centralized db client
+            result = self.db.query("""
                 SELECT ticker, exchange_code, mkt_cap_usd, industry_trbc, industry_naics,
                        price_currency, country_code, last_fundamental_update, 'financedatabase', true, null
                 FROM stock_fundamentals
                 WHERE ticker = %s
-            """, (ticker,))
-
-            result = cur.fetchone()
-            cur.close()
-            conn.close()
+            """, (ticker,), fetch='one')
 
             if result:
                 fundamentals = {
@@ -208,7 +203,7 @@ class FundamentalCacheManager:
             metadata = fundamentals_dict.get('metadata', {})
 
             # Upsert fundamentals
-            cur.execute("""
+            self.db.execute("""
                 INSERT INTO stock_fundamentals
                 (ticker, symbol, exchange, market_cap_usd, sector, industry,
                  currency, country, data_source, is_active, metadata, last_updated)
@@ -230,10 +225,6 @@ class FundamentalCacheManager:
                 ticker, symbol, exchange, market_cap, sector, industry,
                 currency, country, data_source, is_active, json.dumps(metadata)
             ))
-
-            conn.commit()
-            cur.close()
-            conn.close()
 
             # Update memory cache
             fundamentals_dict['last_updated'] = datetime.now()
@@ -274,38 +265,30 @@ class FundamentalCacheManager:
 
             # Bulk insert using execute_values
             from psycopg2.extras import execute_values
-            try:
-                execute_values(
-                    cur,
-                    """
-                    INSERT INTO stock_fundamentals
-                    (ticker, symbol, exchange, market_cap_usd, sector, industry,
-                     currency, country, data_source, is_active, metadata, last_updated)
-                    VALUES %s
-                    ON CONFLICT (ticker)
-                    DO UPDATE SET
-                        symbol = EXCLUDED.symbol,
-                        exchange = EXCLUDED.exchange,
-                        market_cap_usd = EXCLUDED.market_cap_usd,
-                        sector = EXCLUDED.sector,
-                        industry = EXCLUDED.industry,
-                        currency = EXCLUDED.currency,
-                        country = EXCLUDED.country,
-                        data_source = EXCLUDED.data_source,
-                        is_active = EXCLUDED.is_active,
-                        metadata = EXCLUDED.metadata,
-                        last_updated = CURRENT_TIMESTAMP
-                    """,
-                    batch_data
-                )
-            except Exception as batch_error:
-                print(f"DEBUG: Batch insert failed ({batch_error}).")
-                # Removed experimental fallback to avoid more errors; just raise and trace.
-                raise batch_error
-
-            conn.commit()
-            cur.close()
-            conn.close()
+            sql = """
+                INSERT INTO stock_fundamentals
+                (ticker, symbol, exchange, market_cap_usd, sector, industry,
+                 currency, country, data_source, is_active, metadata, last_updated)
+                VALUES %s
+                ON CONFLICT (ticker)
+                DO UPDATE SET
+                    symbol = EXCLUDED.symbol,
+                    exchange = EXCLUDED.exchange,
+                    market_cap_usd = EXCLUDED.market_cap_usd,
+                    sector = EXCLUDED.sector,
+                    industry = EXCLUDED.industry,
+                    currency = EXCLUDED.currency,
+                    country = EXCLUDED.country,
+                    data_source = EXCLUDED.data_source,
+                    is_active = EXCLUDED.is_active,
+                    metadata = EXCLUDED.metadata,
+                    last_updated = CURRENT_TIMESTAMP
+            """
+            
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cur:
+                    execute_values(cur, sql, batch_data)
+                    conn.commit()
             
             # Clear memory cache to ensure fresh data
             self.memory_cache.clear()
@@ -323,43 +306,37 @@ class FundamentalCacheManager:
             return {}
 
         try:
-            conn = psycopg2.connect(**self.db_config)
-            cur = conn.cursor()
-
             # Create placeholders for IN clause
             placeholders = ','.join(['%s'] * len(tickers))
 
-            cur.execute(f"""
-                SELECT ticker, ticker, exchange_code, mkt_cap_usd, industry_trbc, industry_naics,
-                       price_currency, country_code, last_fundamental_update, 'financedatabase', true, null
+            rows = self.db.query(f"""
+                SELECT ticker, exchange, market_cap_usd, sector, industry,
+                       currency, country, last_updated, data_source, is_active, metadata
                 FROM stock_fundamentals
                 WHERE ticker IN ({placeholders})
-            """, tickers)
+            """, tuple(tickers))
 
             results = {}
-            for row in cur.fetchall():
-                ticker = row[0]
-                results[ticker] = {
-                    'ticker': ticker,
-                    'symbol': row[1],
-                    'exchange': row[2],
-                    'market_cap_usd': row[3],
-                    'sector': row[4],
-                    'industry': row[5],
-                    'currency': row[6],
-                    'country': row[7],
-                    'last_updated': row[8],
-                    'data_source': row[9],
-                    'is_active': row[10],
-                    'metadata': row[11] or {}
-                }
-
-            cur.close()
-            conn.close()
+            if rows:
+                for row in rows:
+                    ticker = row[0]
+                    results[ticker] = {
+                        'ticker': ticker,
+                        'symbol': ticker.split('.')[0],
+                        'exchange': row[1],
+                        'market_cap_usd': row[2],
+                        'sector': row[3],
+                        'industry': row[4],
+                        'currency': row[5],
+                        'country': row[6],
+                        'last_updated': row[7],
+                        'data_source': row[8],
+                        'is_active': row[9],
+                        'metadata': row[10] or {}
+                    }
 
             # Update memory cache
             self.memory_cache.update(results)
-
             return results
 
         except Exception as e:
