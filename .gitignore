@@ -17,6 +17,9 @@
 .continue/
 .cursor/
 
+# Local/Replit
+.local/
+
 # OS
 .DS_Store
 Thumbs.db
