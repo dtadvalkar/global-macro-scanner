@@ -8,11 +8,24 @@ This separates market data (frequent updates) from fundamentals data (quarterly 
 import os
 import psycopg2
 
-os.environ['DB_PASS'] = 'postgres'
+db_name = os.getenv("DB_NAME", "market_scanner")
+db_user = os.getenv("DB_USER", "postgres")
+db_pass = os.getenv("DB_PASSWORD", "")
+db_host = os.getenv("DB_HOST", "localhost")
+db_port = os.getenv("DB_PORT", "5432")
+
+def _connect():
+    return psycopg2.connect(
+        dbname=db_name,
+        user=db_user,
+        password=db_pass,
+        host=db_host,
+        port=db_port,
+    )
 
 def create_market_data_table():
     """Create a dedicated table for IBKR market data"""
-    conn = psycopg2.connect('dbname=market_scanner user=postgres password=postgres host=localhost port=5432')
+    conn = _connect()
     cur = conn.cursor()
 
     # Create market data table
@@ -74,7 +87,7 @@ def create_market_data_table():
 
 def clean_raw_ibkr_table():
     """Remove market data from raw_ibkr_nse table (keeping only fundamentals)"""
-    conn = psycopg2.connect('dbname=market_scanner user=postgres password=postgres host=localhost port=5432')
+    conn = _connect()
     cur = conn.cursor()
 
     # Remove market data column from raw_ibkr_nse

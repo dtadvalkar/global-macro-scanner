@@ -8,7 +8,7 @@ import asyncio
 import sys
 sys.path.append('.')
 
-from scripts.etl.yfinance.test_raw_ingestion import collect_yfinance_for_ticker_list
+from scripts.etl.ibkr.test_raw_ingestion import collect_yfinance_for_ticker_list
 
 async def test_yfinance_collection():
     """Test YFinance data collection with a small subset of tickers."""

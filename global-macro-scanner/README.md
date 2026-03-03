@@ -72,7 +72,7 @@ global-macro-scanner/
 │   │   ├── ibkr/                   # IBKR data processing
 │   │   │   ├── collect_daily_ibkr_market_data.py
 │   │   │   ├── flatten_ibkr_market_data.py
-│   │   │   └── migrate_ib_async.py
+│   │   │   └── migrate_to_ib_async.py
 │   │   └── finance_db/             # FinanceDatabase processing
 │   │       ├── flatten_fd_nse.py
 │   │       └── analyze_nse_market_caps.py

@@ -22,7 +22,7 @@ sys.path.append('.')
 # Force UTF-8 encoding for stdout to support emojis
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-from scripts.etl.yfinance.test_raw_ingestion import get_fundamentals_tickers, ingest_multi_ohlcv
+from scripts.etl.ibkr.test_raw_ingestion import get_fundamentals_tickers, ingest_multi_ohlcv
 
 async def collect_historical_yfinance_data():
     """Collect 2 years of historical OHLCV data for all fundamentals tickers."""

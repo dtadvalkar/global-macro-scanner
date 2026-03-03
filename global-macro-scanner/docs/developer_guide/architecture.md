@@ -57,7 +57,7 @@ main.py → Orchestrates scanning workflows
 ┌─────────────────────────────────────────────────────────────┐
 │                  ANALYTICAL LAYER                           │
 ├─────────────────────────────────────────────────────────────┤
-│  stock_fundamentals ←───── flatten_ibkr_mega.py             │
+│  stock_fundamentals ←───── scripts/etl/ibkr/flatten_ibkr_final.py           │
 │  (81+ columns)                                              │
 │                                                             │
 │  current_market_data ←─── scripts/etl/ibkr/flatten_ibkr_market_data.py       │

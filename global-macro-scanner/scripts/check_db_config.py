@@ -14,11 +14,11 @@ def check_db_config():
     print('=' * 50)
 
     print('Environment variables:')
-    print(f'  DB_NAME: {os.getenv("DB_NAME", "NOT SET (default: global_scanner)")}')
-    print(f'  DB_USER: {os.getenv("DB_USER", "NOT SET (default: postgres)")}')
-    print(f'  DB_PASS: {os.getenv("DB_PASS", "NOT SET (default: password)")}')
-    print(f'  DB_HOST: {os.getenv("DB_HOST", "NOT SET (default: localhost)")}')
-    print(f'  DB_PORT: {os.getenv("DB_PORT", "NOT SET (default: 5432)")}')
+    print(f'  DB_NAME: {os.getenv("DB_NAME", "NOT SET")}')
+    print(f'  DB_USER: {os.getenv("DB_USER", "NOT SET")}')
+    print(f'  DB_PASSWORD: {os.getenv("DB_PASSWORD", "NOT SET")}')
+    print(f'  DB_HOST: {os.getenv("DB_HOST", "NOT SET")}')
+    print(f'  DB_PORT: {os.getenv("DB_PORT", "NOT SET")}')
 
     print('\nDB_CONFIG from settings.py:')
     for key, value in DB_CONFIG.items():

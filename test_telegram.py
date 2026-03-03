@@ -2,12 +2,15 @@ import os
 import requests
 
 # === CONFIG ===
-# Hardcoding for a quick test based on your main.py
-TELEGRAM_TOKEN = "8422797197:AAFpQxUsKpvPlCc1MCi1DgbsRRCMVK8w4Wg"
-CHAT_ID = "8095552564"
+# Use environment variables for secrets; no hard-coded tokens.
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 def send_test_alert():
-    print(f"🚀 Sending test alert to Telegram...")
+    print("🚀 Sending test alert to Telegram...")
+    if not TELEGRAM_TOKEN or not CHAT_ID:
+        print("⚠️ TELEGRAM_TOKEN or TELEGRAM_CHAT_ID not set in environment.")
+        return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     try:
         response = requests.get(url, 

@@ -258,7 +258,7 @@ class Database:
         tables = [
             """
             CREATE TABLE IF NOT EXISTS tickers (
-                symbol TEXT PRIMARY KEY,
+                ticker TEXT PRIMARY KEY,
                 market TEXT,
                 status TEXT DEFAULT 'ACTIVE',
                 status_message TEXT,
@@ -398,10 +398,10 @@ class Database:
         """Returns tickers that are either ACTIVE or in parole."""
         parole_date = datetime.now() - timedelta(days=200) 
         rows = self.query("""
-            SELECT symbol FROM tickers 
+            SELECT ticker FROM tickers 
             WHERE market = %s 
             AND (status = 'ACTIVE' OR status IS NULL OR last_updated < %s)
-            ORDER BY symbol
+            ORDER BY ticker
         """, (market, parole_date))
         return [row[0] for row in rows] if rows else []
 
@@ -415,18 +415,18 @@ class Database:
                 from psycopg2.extras import execute_values
                 execute_values(
                     cur,
-                    "INSERT INTO tickers (symbol, market, last_updated) VALUES %s "
-                    "ON CONFLICT (symbol) DO UPDATE SET last_updated = EXCLUDED.last_updated, market = EXCLUDED.market",
+                    "INSERT INTO tickers (ticker, market, last_updated) VALUES %s "
+                    "ON CONFLICT (ticker) DO UPDATE SET last_updated = EXCLUDED.last_updated, market = EXCLUDED.market",
                     data
                 )
 
-    def update_ticker_status(self, symbol, status, message=None):
+    def update_ticker_status(self, ticker, status, message=None):
         """Updates the status of a ticker (e.g., 'INACTIVE', 'ACTIVE')"""
         self.execute("""
             UPDATE tickers 
             SET status = %s, status_message = %s, last_updated = %s
-            WHERE symbol = %s
-        """, (status, message, datetime.now(), symbol))
+            WHERE ticker = %s
+        """, (status, message, datetime.now(), ticker))
 
     # ============================================================================
     # DATA VALIDATION & HEALTH CHECKS

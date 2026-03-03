@@ -29,7 +29,7 @@ class DatabaseManager:
         with conn.cursor() as cur:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS tickers (
-                    symbol TEXT PRIMARY KEY,
+                    ticker TEXT PRIMARY KEY,
                     market TEXT,
                     status TEXT DEFAULT 'ACTIVE',
                     status_message TEXT,
@@ -41,7 +41,7 @@ class DatabaseManager:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS catches (
                     id SERIAL PRIMARY KEY,
-                    symbol TEXT,
+                    ticker TEXT,
                     price DECIMAL,
                     usd_mcap DECIMAL,
                     pct_from_low DECIMAL,
@@ -56,7 +56,7 @@ class DatabaseManager:
         cutoff = datetime.now() - timedelta(days=ttl_days)
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT symbol FROM tickers WHERE market = %s AND last_updated > %s",
+                "SELECT ticker FROM tickers WHERE market = %s AND last_updated > %s",
                 (market, cutoff)
             )
             rows = cur.fetchall()
@@ -76,7 +76,7 @@ class DatabaseManager:
         
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT symbol FROM tickers 
+                SELECT ticker FROM tickers 
                 WHERE market = %s 
                 AND (
                     status = 'ACTIVE' 
@@ -87,15 +87,15 @@ class DatabaseManager:
             rows = cur.fetchall()
         return [row[0] for row in rows]
 
-    def update_ticker_status(self, symbol, status, message=None):
+    def update_ticker_status(self, ticker, status, message=None):
         """Updates the status of a ticker (e.g., 'INACTIVE', 'ACTIVE')"""
         conn = self._get_connection()
         with conn.cursor() as cur:
             cur.execute("""
                 UPDATE tickers 
                 SET status = %s, status_message = %s, last_updated = %s
-                WHERE symbol = %s
-            """, (status, message, datetime.now(), symbol))
+                WHERE ticker = %s
+            """, (status, message, datetime.now(), ticker))
         conn.commit()
 
     def is_market_fresh(self, market, ttl_days=7, min_count=100):
@@ -129,8 +129,8 @@ class DatabaseManager:
             data = [(s, market, datetime.now()) for s in tickers]
             extras.execute_values(
                 cur,
-                "INSERT INTO tickers (symbol, market, last_updated) VALUES %s "
-                "ON CONFLICT (symbol) DO UPDATE SET last_updated = EXCLUDED.last_updated, market = EXCLUDED.market",
+                "INSERT INTO tickers (ticker, market, last_updated) VALUES %s "
+                "ON CONFLICT (ticker) DO UPDATE SET last_updated = EXCLUDED.last_updated, market = EXCLUDED.market",
                 data
             )
         conn.commit()

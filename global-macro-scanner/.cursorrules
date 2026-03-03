@@ -1,0 +1,81 @@
+## TOKEN EFFICIENCY FIRST (FREE TIER PRIORITY)
+- Responses under 150 words max. No explanations unless I ask.
+- Hard cap: <80 lines of code per message unless I say "long answer".
+- Generate <100-line diffs only. For multi-file or large changes, propose a plan first.
+- Reuse identical patterns from the existing codebase verbatim when safe.
+- Do NOT add verbose comments/docstrings—prefer clear, self-documenting names.
+
+
+## PROJECT SCOPE & CONTEXT HYGIENE
+- Primary production code lives in: config/, data/, storage/, screener/, screening/, scheduler/, main/, scripts/etl/.
+- Prefer reusing/extending code from these directories over ad-hoc scripts or tests.
+- Treat backups/ and any *.ib_insync_backup files as READ-ONLY; do not modify or copy from them unless I explicitly ask.
+- Never open or edit files in __pycache__/ or data_files/raw/ unless I explicitly request it.
+
+
+## PLANNING WITH FILES
+- For any task with 3+ steps or multiple files:
+  - Use docs/tasks/<task>_plan.md for scope, phases, and checklist.
+  - Use docs/tasks/<task>_findings.md for experiments, benchmarks, and notes.
+  - Use docs/tasks/<task>_progress.md for what was run, what failed, and what is done.
+- Agents should:
+  - Read/update the *_plan.md before large or multi-file changes.
+  - Append key discoveries to *_findings.md instead of repeating them in chat.
+  - Log important attempts/results in *_progress.md.
+
+
+## REUSE & CLEANUP (SCOPED ANTI-BLOAT)
+- BEFORE ADDING NEW LOGIC: First look in config/, data/, storage/, screener/, screening/, scheduler/, main/, and scripts/etl/ for existing functions/utilities.
+- Prefer modifying/extending existing functions/modules over creating near-duplicate logic in new places.
+- Safe cleanup only: remove obviously unused imports, dead code, or duplicate helpers in the SAME file or module you are already editing—no cross-directory refactors unless I say "refactor".
+- Tests should call shared utilities or existing helpers where possible; avoid recreating the same helper logic inline.
+
+
+## FREE-TIER WORKFLOW
+- Prefer cheaper / Auto models for exploration, design, and simple edits; use heavier models only for complex reasoning or large refactors.
+- Aim for the smallest viable changes per run; batch prompts wisely instead of many tiny back-and-forths.
+- When proposing a plan, use concise bullets only, for example:
+  - "Delete A,B; Merge C→data/…; Update tests in tests/…; Run pytest D".
+
+
+## STYLE & EFFICIENCY
+- Pythonic, clear code over unnecessary abstractions: small functions, simple loops/comprehensions, minimal classes.
+- Naming: snake_case, descriptive but short (get_data, load_config, run_scan).
+- Imports: absolute where practical, sorted, one-per-line; trim unused imports when touching a file.
+- Follow existing local style in the file being edited (logging, error-handling, typing) instead of introducing a new style.
+
+
+## LINTER/STYLISTIC CHANGES
+- When editing a function or code section for a primary change, minor linter/style fixes (e.g., trimming unused imports, fixing obvious style/formatting issues) within that section are always allowed.
+
+
+## FILE CREATION POLICY
+- Default: Do NOT create new .py files.
+- Allowed without extra approval:
+  - Planning, findings, or progress docs under docs/tasks/ (e.g., *_plan.md, *_findings.md, *_progress.md) are always pre-approved.
+  - New test files under tests/ or scripts/testing/ only when I explicitly ask for tests.
+- For any other new file:
+  - First propose the exact path and purpose (e.g. scripts/etl/ibkr/new_job.py, "ETL entrypoint for daily IBKR fundamentals").
+  - WAIT for me to reply with: "ALLOW_NEW_FILE: <path>" before creating it.
+
+
+## EXECUTION SAFETY
+- DEFAULT: Plan-only. Do not edit files until I reply APPROVE.
+- For any change touching more than 1 file or more than ~50 lines total: PLAN ONLY.
+- After executing an approved plan step, STOP and summarize what changed (files + line ranges). Wait for the next APPROVE before continuing.
+
+
+## FAILURE HANDLING
+- On any error, unexpected behavior, or missing context: STOP.
+- Report briefly:
+  - what failed,
+  - why it likely failed,
+  - 1–2 concrete options to fix or next steps.
+- Do NOT auto-retry, do NOT broaden the search to new directories, and do NOT spawn additional work unless I explicitly ask.
+
+
+## ABSOLUTE NOs (TOKEN DRAINERS)
+- No speculative refactors or “nice to have” cleanups outside the files and scope I mention.
+- No new helpers during tests/features unless I explicitly request a shared helper.
+- No "Here is..." or similar preambles—reply with code diffs or minimal explanations only.
+- No tool calls, external commands, or long-running scans unless I explicitly prompt for them.

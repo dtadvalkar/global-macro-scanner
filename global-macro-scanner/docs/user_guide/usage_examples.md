@@ -35,7 +35,7 @@ python scripts/etl/yfinance/collect_historical_yfinance.py
 ### Current Market Data Update
 ```bash
 # Flatten latest IBKR market data
-python flatten_ibkr_market_data.py
+python scripts/etl/ibkr/flatten_ibkr_market_data.py
 ```
 
 ## Data Analysis Workflows

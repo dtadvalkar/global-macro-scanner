@@ -5,10 +5,11 @@ import time
 from datetime import datetime
 import schedule
 import logging
+import os
 
 # === CONFIG ===
-TELEGRAM_TOKEN = "8422797197:AAFpQxUsKpvPlCc1MCi1DgbsRRCMVK8w4Wg"  # From @BotFather
-CHAT_ID = "8095552564"  # From @userinfobot
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 TEST_MODE = False  # Set False for production
 CRITERIA = {
     'price_52w_low_pct': 1.01,  # Within 1% of 52w low

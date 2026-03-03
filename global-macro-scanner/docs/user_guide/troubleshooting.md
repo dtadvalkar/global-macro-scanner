@@ -119,8 +119,8 @@ python scripts/etl/ibkr/flatten_ibkr_market_data.py
 # Check raw data quality
 python audit_raw.py
 
-# Re-run flattening
-python flatten_ibkr_mega.py
+# Re-run fundamentals flattening
+python scripts/etl/ibkr/flatten_ibkr_final.py
 ```
 
 ### Stale Data
