@@ -59,10 +59,12 @@ def flatten_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     # We first stack the ticker level, then rename columns.
     if isinstance(df.columns, pd.MultiIndex):
         df = df.stack(level=0).reset_index()
+        # After stack(level=0): date index retains name "Date";
+        # stacked ticker level is named "Ticker" in yfinance >= 1.x.
         df = df.rename(
             columns={
-                "level_0": "price_date",
-                "level_1": "ticker",
+                "Date": "price_date",
+                "Ticker": "ticker",
                 "Open": "open",
                 "High": "high",
                 "Low": "low",
@@ -95,7 +97,7 @@ def flatten_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     numeric_cols = ["open", "high", "low", "close"]
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-    df["volume"] = pd.to_numeric(df["volume"], errors="coerce").astype("Int64")
+    df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
     
     # Filter for required columns
     return df[["ticker", "price_date", "open", "high", "low", "close", "volume"]]

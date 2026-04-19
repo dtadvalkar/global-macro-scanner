@@ -1,84 +1,111 @@
 """
 collect_historical_yfinance.py
 
-One-time script to collect 2 years of historical OHLCV data for all tickers
-in stock_fundamentals table using bulk YFinance download.
-
-This populates prices_daily table with historical data for analysis.
-Run this once, then use daily updates going forward.
+One-time script to collect 10 years of historical OHLCV data for the
+curated 398 tickers in stock_fundamentals, using a single bulk YFinance
+download. Populates prices_daily. Safe to re-run — ON CONFLICT updates
+existing rows and refreshes datetimestamp.
 
 USAGE:
-    python collect_historical_yfinance.py
+    python scripts/etl/yfinance/collect_historical_yfinance.py
+    python scripts/etl/yfinance/collect_historical_yfinance.py --period 5y
 """
 
-import asyncio
+import argparse
 import sys
 import os
 import io
+import time
+import psycopg2
 
-# Add current directory to path for imports
-sys.path.append('.')
-
-# Force UTF-8 encoding for stdout to support emojis
+sys.path.append(os.getcwd())
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-from scripts.etl.ibkr.test_raw_ingestion import get_fundamentals_tickers, ingest_multi_ohlcv
+from config.settings import DB_CONFIG
+from scripts.etl.yfinance.collect_daily_yfinance import ingest_multi_ohlcv, bulk_insert_prices
 
-async def collect_historical_yfinance_data():
-    """Collect 2 years of historical OHLCV data for all fundamentals tickers."""
+DB_URL = (
+    f"postgresql://{DB_CONFIG['db_user']}:{DB_CONFIG['db_pass']}"
+    f"@{DB_CONFIG['db_host']}:{DB_CONFIG['db_port']}/{DB_CONFIG['db_name']}"
+)
 
-    print("="*70)
+PERIOD = "10y"
+
+
+def get_fundamentals_tickers(conn) -> list[str]:
+    """Return all tickers from stock_fundamentals (curated NSE universe)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT ticker FROM stock_fundamentals ORDER BY ticker")
+        return [r[0] for r in cur.fetchall()]
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="One-time historical OHLCV backfill for curated stock_fundamentals tickers."
+    )
+    parser.add_argument(
+        "--period",
+        default=PERIOD,
+        help=f"yfinance period string (default: {PERIOD}). Examples: 5y, 10y, max.",
+    )
+    args = parser.parse_args()
+
+    print("=" * 70)
     print("HISTORICAL YFINANCE DATA COLLECTION")
-    print("="*70)
-    print("Purpose: One-time bulk download of 2 years OHLCV data")
-    print("Target: All tickers in stock_fundamentals table")
-    print("Storage: prices_daily table with source='yf'")
-    print("="*70)
+    print("=" * 70)
+    print(f"Source : stock_fundamentals (curated NSE universe)")
+    print(f"Target : prices_daily")
+    print(f"Period : {args.period}")
+    print(f"Safe   : ON CONFLICT (ticker, price_date) DO UPDATE")
+    print("=" * 70)
 
-    # Get all tickers from fundamentals
     try:
-        fundamentals_tickers = get_fundamentals_tickers()
-        total_tickers = len(fundamentals_tickers)
-        print(f"Found {total_tickers} tickers in stock_fundamentals")
+        conn = psycopg2.connect(DB_URL)
     except Exception as e:
-        print(f"❌ Error getting tickers: {e}")
-        return
+        print(f"❌ DB connection failed: {e}")
+        sys.exit(1)
 
-    if total_tickers == 0:
-        print("❌ No tickers found in stock_fundamentals table!")
-        return
+    tickers = get_fundamentals_tickers(conn)
+    total = len(tickers)
+    print(f"\nFound {total} tickers in stock_fundamentals")
+    print(f"Sample: {tickers[:5]}")
 
-    # Show sample tickers
-    print(f"Sample tickers: {fundamentals_tickers[:5]}")
-    print(f"Will convert to YFinance format: {fundamentals_tickers[0]} -> {fundamentals_tickers[0].split('.')[0]}")
+    if total == 0:
+        print("❌ No tickers found — aborting.")
+        conn.close()
+        sys.exit(1)
 
-    # Confirm before proceeding with large download
-    print(f"\nABOUT TO DOWNLOAD: 2 years × {total_tickers} tickers = ~{total_tickers * 500} data points")
-    print("This is a ONE-SHOT bulk download to avoid rate limits")
-    print("Estimated time: 5-15 minutes depending on network")
-
-    # Proceed with download
-    print("\nStarting bulk download...")
-    start_time = asyncio.get_event_loop().time()
+    print(f"\nStarting bulk download ({args.period} × {total} tickers)...")
+    t0 = time.time()
 
     try:
-        await ingest_multi_ohlcv(fundamentals_tickers, period="2y")
+        df = ingest_multi_ohlcv(tickers, args.period)
     except Exception as e:
         print(f"❌ Download failed: {e}")
-        return
+        conn.close()
+        sys.exit(1)
 
-    end_time = asyncio.get_event_loop().time()
-    duration = end_time - start_time
+    if df.empty:
+        print("❌ No data returned from YFinance — nothing inserted.")
+        conn.close()
+        sys.exit(1)
 
-    print(f"Duration: {duration:.1f} seconds")
-    print("="*70)
-    print("HISTORICAL DATA COLLECTION COMPLETE")
-    print("="*70)
-    print("Next steps:")
-    print("   1. Check prices_daily table: python check_progress.py")
-    print("   2. Validate data quality in database")
-    print("   3. Ready for daily updates (design when needed)")
-    print("="*70)
+    try:
+        bulk_insert_prices(conn, df)
+    except Exception as e:
+        print(f"❌ Insert failed: {e}")
+        conn.close()
+        sys.exit(1)
+
+    duration = time.time() - t0
+    print(f"\nDuration : {duration:.1f}s")
+    print("=" * 70)
+    print("COLLECTION COMPLETE")
+    print("=" * 70)
+    print("Next: PYTHONPATH='.' python scripts/testing/check_progress.py")
+
+    conn.close()
+
 
 if __name__ == "__main__":
-    asyncio.run(collect_historical_yfinance_data())
+    main()
