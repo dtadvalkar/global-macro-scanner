@@ -1,81 +1,65 @@
-## TOKEN EFFICIENCY FIRST (FREE TIER PRIORITY)
-- Responses under 150 words max. No explanations unless I ask.
-- Hard cap: <80 lines of code per message unless I say "long answer".
-- Generate <100-line diffs only. For multi-file or large changes, propose a plan first.
-- Reuse identical patterns from the existing codebase verbatim when safe.
-- Do NOT add verbose comments/docstrings—prefer clear, self-documenting names.
+Read `AGENT_GUIDE.md` first. It is the shared project contract.
 
+## Cursor priorities
+- Treat `global-macro-scanner/` as the real project root
+- Prioritize correctness over brevity; keep diffs small and reviewable
+- Reuse existing patterns from the codebase before inventing new ones
+- For multi-file or structural changes, propose a plan and wait for approval
 
-## PROJECT SCOPE & CONTEXT HYGIENE
-- Primary production code lives in: config/, data/, storage/, screener/, screening/, scheduler/, main/, scripts/etl/.
-- Prefer reusing/extending code from these directories over ad-hoc scripts or tests.
-- Treat backups/ and any *.ib_insync_backup files as READ-ONLY; do not modify or copy from them unless I explicitly ask.
-- Never open or edit files in __pycache__/ or data_files/raw/ unless I explicitly request it.
+## Project scope
+- Canonical code lives in: `config/`, `data/`, `storage/`, `screener/`, `screening/`, `scheduler/`, `main/`, `scripts/etl/`
+- Prefer extending canonical modules over adding ad-hoc scripts
+- Treat `backups/` and `*.ib_insync_backup` files as historical artifacts — do not modify
+- Avoid touching `data_files/raw/` unless the task explicitly requires it
+- For DB work: use `db.py`; do not scatter raw SQL or new `check_*.py` files
 
+## Planning and task docs
+- For tasks with 3+ steps or touching multiple files, create or update docs under `docs/tasks/`:
+  - `*_plan.md` — scope, phases, and checklist
+  - `*_findings.md` — experiments, benchmarks, discoveries
+  - `*_progress.md` — what ran, what failed, what is done
+- Append to `docs/tasks/global_macro_cleanup_progress.md` for cleanup and structural work
+- Keep task docs short and factual; do not create them for trivial edits
 
-## PLANNING WITH FILES
-- For any task with 3+ steps or multiple files:
-  - Use docs/tasks/<task>_plan.md for scope, phases, and checklist.
-  - Use docs/tasks/<task>_findings.md for experiments, benchmarks, and notes.
-  - Use docs/tasks/<task>_progress.md for what was run, what failed, and what is done.
-- Agents should:
-  - Read/update the *_plan.md before large or multi-file changes.
-  - Append key discoveries to *_findings.md instead of repeating them in chat.
-  - Log important attempts/results in *_progress.md.
+## Reuse and anti-bloat
+- Before adding new logic, search `config/`, `data/`, `storage/`, `screener/`, `screening/`, `scheduler/`, `main/`, and `scripts/etl/` for existing helpers
+- Modify or extend existing functions rather than creating near-duplicate logic elsewhere
+- Safe local cleanup only: remove unused imports or dead code in files you are already editing — no cross-directory refactors unless explicitly requested
+- Tests should call shared utilities; avoid recreating helper logic inline
 
+## Style
+- Pythonic, clear code: small functions, simple loops, minimal classes
+- Naming: `snake_case`, descriptive but concise (`get_data`, `load_config`, `run_scan`)
+- Imports: absolute where practical, sorted, one-per-line; trim unused imports when touching a file
+- Follow the local style in the file being edited (logging, error-handling, typing) rather than introducing a new convention
+- No verbose comments or docstrings unless the WHY is non-obvious
 
-## REUSE & CLEANUP (SCOPED ANTI-BLOAT)
-- BEFORE ADDING NEW LOGIC: First look in config/, data/, storage/, screener/, screening/, scheduler/, main/, and scripts/etl/ for existing functions/utilities.
-- Prefer modifying/extending existing functions/modules over creating near-duplicate logic in new places.
-- Safe cleanup only: remove obviously unused imports, dead code, or duplicate helpers in the SAME file or module you are already editing—no cross-directory refactors unless I say "refactor".
-- Tests should call shared utilities or existing helpers where possible; avoid recreating the same helper logic inline.
+## File creation policy
+- Default: do not create new `.py` files without justification
+- Pre-approved without extra confirmation:
+  - Planning, findings, or progress docs under `docs/tasks/`
+  - New test files under `tests/` or `scripts/testing/` when tests are explicitly requested
+- For any other new file: propose the exact path and purpose first, wait for explicit approval before creating
 
+## Execution safety
+- Inspect files before editing; read before writing
+- Check `git status --short` before structural moves, cleanup, or multi-file changes
+- For any change touching more than one file or ~50 lines: present the plan first, execute only after approval
+- After completing an approved step, summarize what changed (files + line ranges) before continuing
 
-## FREE-TIER WORKFLOW
-- Prefer cheaper / Auto models for exploration, design, and simple edits; use heavier models only for complex reasoning or large refactors.
-- Aim for the smallest viable changes per run; batch prompts wisely instead of many tiny back-and-forths.
-- When proposing a plan, use concise bullets only, for example:
-  - "Delete A,B; Merge C→data/…; Update tests in tests/…; Run pytest D".
+## Failure handling
+- On any error, unexpected behavior, or missing context: stop immediately
+- Report: what failed, why it likely failed, and 1–2 concrete options to fix it
+- Do not auto-retry, do not broaden scope to new directories, and do not spawn additional work unless explicitly asked
 
+## Documentation alignment
+- Keep docs consistent with `README.md`, `CLAUDE.md`, and `AGENT_GUIDE.md`
+- `README.md` is the canonical operator doc — setup, env vars, primary commands live there
+- Topic docs under `docs/` defer to `README.md` for setup; they cover specialized detail only
+- Do not turn specialized docs into competing READMEs
 
-## STYLE & EFFICIENCY
-- Pythonic, clear code over unnecessary abstractions: small functions, simple loops/comprehensions, minimal classes.
-- Naming: snake_case, descriptive but short (get_data, load_config, run_scan).
-- Imports: absolute where practical, sorted, one-per-line; trim unused imports when touching a file.
-- Follow existing local style in the file being edited (logging, error-handling, typing) instead of introducing a new style.
-
-
-## LINTER/STYLISTIC CHANGES
-- When editing a function or code section for a primary change, minor linter/style fixes (e.g., trimming unused imports, fixing obvious style/formatting issues) within that section are always allowed.
-
-
-## FILE CREATION POLICY
-- Default: Do NOT create new .py files.
-- Allowed without extra approval:
-  - Planning, findings, or progress docs under docs/tasks/ (e.g., *_plan.md, *_findings.md, *_progress.md) are always pre-approved.
-  - New test files under tests/ or scripts/testing/ only when I explicitly ask for tests.
-- For any other new file:
-  - First propose the exact path and purpose (e.g. scripts/etl/ibkr/new_job.py, "ETL entrypoint for daily IBKR fundamentals").
-  - WAIT for me to reply with: "ALLOW_NEW_FILE: <path>" before creating it.
-
-
-## EXECUTION SAFETY
-- DEFAULT: Plan-only. Do not edit files until I reply APPROVE.
-- For any change touching more than 1 file or more than ~50 lines total: PLAN ONLY.
-- After executing an approved plan step, STOP and summarize what changed (files + line ranges). Wait for the next APPROVE before continuing.
-
-
-## FAILURE HANDLING
-- On any error, unexpected behavior, or missing context: STOP.
-- Report briefly:
-  - what failed,
-  - why it likely failed,
-  - 1–2 concrete options to fix or next steps.
-- Do NOT auto-retry, do NOT broaden the search to new directories, and do NOT spawn additional work unless I explicitly ask.
-
-
-## ABSOLUTE NOs (TOKEN DRAINERS)
-- No speculative refactors or “nice to have” cleanups outside the files and scope I mention.
-- No new helpers during tests/features unless I explicitly request a shared helper.
-- No "Here is..." or similar preambles—reply with code diffs or minimal explanations only.
-- No tool calls, external commands, or long-running scans unless I explicitly prompt for them.
+## Avoid
+- Speculative refactors or "nice to have" cleanups outside the stated scope
+- New helpers that duplicate existing ones in a different location
+- Inventing new entrypoints, CLI flags, or dependency workflows without approval
+- Broadening a task on your own when the original request is clear
