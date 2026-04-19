@@ -9,7 +9,7 @@ Get up and running with Global Market Scanner in under 15 minutes. This guide co
 ## Prerequisites
 
 Before starting, ensure you have:
-- ✅ Python 3.10 or higher
+- ✅ Python 3.12 or higher
 - ✅ PostgreSQL database
 - ✅ IBKR Trader Workstation (optional, for live data)
 - ✅ Basic command line knowledge
@@ -54,5 +54,3 @@ After your first scan:
 - **[Troubleshooting](./troubleshooting.md)** - Fix common issues
 
 ---
-
-**Status**: ✅ Complete | **Last Updated**: January 2025

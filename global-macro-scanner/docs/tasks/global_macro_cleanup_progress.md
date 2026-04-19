@@ -247,3 +247,31 @@ All reference updates were done in the same batch as the moves (B2/C1). No broke
 - Added canonical-reference callout at top.
 
 **`docs/user_guide/usage_examples.md`** — no setup content; no changes needed.
+
+---
+
+## Phase 1 Hygiene — 2026-04-18
+
+**Scope:** Doc accuracy, stale footers, loose diagnostics, outer-root junk.
+
+**`docs/user_guide/installation.md`**
+- Python 3.10+ → 3.12; 3.11+ → 3.12; Docker `python:3.11-slim` → `python:3.12-slim`
+- `venv` → `.venv` (create, Windows activate, macOS/Linux activate lines)
+- Broken verify step `python -c "import global_macro_scanner; ..."` → `python db.py health`
+- Wrong path `python check_progress.py` → `python scripts/testing/check_progress.py`
+- Removed stale footer
+
+**`docs/user_guide/getting_started.md`**
+- Python 3.10+ → 3.12; removed stale footer
+
+**Stale footers removed** (`**Status**: ✅ Complete | **Last Updated**: January 2025`):
+- `docs/user_guide/usage_examples.md`
+- `docs/user_guide/troubleshooting.md`
+- `docs/developer_guide/architecture.md`
+- `docs/developer_guide/etl_pipeline.md`
+
+**`check_data_completeness.py`** → `scripts/testing/check_data_completeness.py` (git mv; canonical ops diagnostic now in correct location)
+
+**`uv.lock`** (outer root) — deleted; stale after removing scanner deps from `pyproject.toml` in trust-restoration pass
+
+**`implementation_plan.md`** → `docs/archive/implementation_plan.md` — stale one-time task doc describing completed ticker status work; replaced by code itself and architecture.md

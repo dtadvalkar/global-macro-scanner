@@ -142,5 +142,3 @@ results = provider.get_market_data(['RELIANCE.NSE', 'TCS.NSE'], criteria)
 - **[Architecture](../developer_guide/architecture.md)** - System design
 
 ---
-
-**Status**: ✅ Complete | **Last Updated**: January 2025

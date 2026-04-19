@@ -10,13 +10,13 @@ Complete installation instructions for Global Market Scanner across different en
 
 ### Minimum Requirements
 - **OS**: Windows 10+, macOS 10.15+, Ubuntu 18.04+
-- **Python**: 3.10 or higher
+- **Python**: 3.12 or higher
 - **RAM**: 4GB minimum, 8GB recommended
 - **Storage**: 10GB free space
 - **Network**: Stable internet connection
 
 ### Recommended Setup
-- **Python**: 3.11+
+- **Python**: 3.12+
 - **PostgreSQL**: 13+
 - **RAM**: 16GB+
 - **CPU**: Multi-core processor
@@ -32,13 +32,13 @@ cd global-macro-scanner
 ### 2. Python Environment
 ```bash
 # Create virtual environment
-python -m venv venv
+python -m venv .venv
 
 # Activate environment
 # Windows:
-venv\Scripts\activate
+.venv\Scripts\activate
 # macOS/Linux:
-source venv/bin/activate
+source .venv/bin/activate
 
 # Upgrade pip
 pip install --upgrade pip
@@ -79,7 +79,7 @@ CHAT_ID=your_chat_id
 
 ### 6. Verify Installation
 ```bash
-python -c "import global_macro_scanner; print('✅ Installation successful')"
+python db.py health
 ```
 
 ## IBKR Setup (Optional)
@@ -100,8 +100,8 @@ python -c "import global_macro_scanner; print('✅ Installation successful')"
 
 **Python Version Error**
 ```bash
-python --version  # Should be 3.10+
-# If not, install Python 3.10+ from python.org
+python --version  # Should be 3.12+
+# If not, install Python 3.12+ from python.org
 ```
 
 **PostgreSQL Connection Failed**
@@ -144,7 +144,7 @@ sudo apt install python3-venv
 
 ### Docker Setup (Alternative)
 ```dockerfile
-FROM python:3.11-slim
+FROM python:3.12-slim
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 ```
@@ -163,7 +163,7 @@ python main.py --exchanges NSE --mode test
 
 ### Verify Database
 ```bash
-python check_progress.py
+python scripts/testing/check_progress.py
 ```
 
 ## Related Documentation
@@ -173,5 +173,3 @@ python check_progress.py
 - **[Troubleshooting](./troubleshooting.md)** - Fix runtime issues
 
 ---
-
-**Status**: ✅ Complete | **Last Updated**: January 2025
