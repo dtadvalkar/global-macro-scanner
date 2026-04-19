@@ -10,8 +10,8 @@ import time
 from datetime import datetime
 import argparse
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add scanner root (parent of this file's directory) to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import CRITERIA, MARKETS, TEST_MODE
 from screener.universe import get_universe

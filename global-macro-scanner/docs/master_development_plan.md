@@ -24,6 +24,26 @@ This document outlines the comprehensive development roadmap for the Global Mark
 - **Storage**: `storage/` - CSV logging and database management
 - **Alerts**: `alerts/telegram.py` - Notification system
 
+### Script Taxonomy
+
+| Path | Role | Status |
+|------|------|--------|
+| `main.py` | Primary daily orchestration entrypoint | Canonical |
+| `main/main_automated.py` | Scheduler-driven live runner (called by `scheduler/market_scheduler.py`) | Canonical |
+| `main/main-paper.py` | Paper-trading entrypoint (IBKR paper mode) | Canonical |
+| `scheduler/market_scheduler.py` | Intelligent market timing and scheduling | Canonical |
+| `scripts/etl/ibkr/collect_daily_ibkr_market_data.py` | Daily IBKR market data collection | Canonical ETL |
+| `scripts/etl/ibkr/flatten_ibkr_market_data.py` | Flattens IBKR snapshots → `current_market_data` | Canonical ETL |
+| `scripts/etl/ibkr/flatten_ibkr_final.py` | Flattens IBKR XML ratios → `stock_fundamentals` | Canonical ETL |
+| `scripts/etl/yfinance/collect_historical_yfinance.py` | Bulk YFinance OHLCV download → `prices_daily` | Canonical ETL |
+| `scripts/etl/finance_db/flatten_fd_nse.py` | FinanceDatabase → `stock_fundamentals_fd` | Canonical ETL |
+| `scripts/analysis/` | Inspection and audit helpers | Ops |
+| `scripts/testing/` | Diagnostic and audit scripts | Ops |
+| `scripts/utils/` | Operational utilities (port check, schema reset, etc.) | Ops |
+| `scripts/ops/` | Operational helpers not part of daily pipeline | Ops |
+| `scripts/legacy/` | Superseded scripts — do not import from production | Archive |
+| `docs/archive/` | Retired planning docs and completed one-time checklists | Archive |
+
 ### Data Sources & Access
 - **Primary**: IBKR API (Type 3 Delayed Data) - US, Canada, India, Germany, France, Australia, Singapore, UK, Japan, Hong Kong
 - **Fallback**: YFinance API - Thailand, Indonesia, and IBKR failures
@@ -274,6 +294,4 @@ See `config/criteria.py` for complete specification:
 
 *Last Updated: January 9, 2025*
 *Progress: 2/9 Tasks Completed (22% Complete)*
-*Next: IBKR permissions (external) → Current markets testing*</contents>
-</xai:function_call: write>
-<parameter name="file_path">docs/master_development_plan.md
+*Next: IBKR permissions (external) → Current markets testing*

@@ -240,7 +240,7 @@ def create_windows_task_scheduler_script():
     # Get script directory and python path
     script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     python_exe = os.sys.executable
-    main_script = os.path.join(script_dir, 'main_automated.py')
+    main_script = os.path.join(script_dir, 'main', 'main_automated.py')
 
     # Create batch file content
     batch_content = f'''@echo off

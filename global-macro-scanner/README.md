@@ -89,14 +89,18 @@ global-macro-scanner/
 │   │   ├── audit_high_fidelity.py
 │   │   └── final_audit_live.py
 │   │
-│   └── utils/                      # Utility and helper scripts
-│       ├── quick_port_check.py
-│       ├── kill_locks.py
-│       ├── reset_db_schema.py
-│       └── orchestrate_ibkr_pipeline.py
+│   ├── utils/                      # Utility and helper scripts
+│   │   ├── quick_port_check.py
+│   │   ├── kill_locks.py
+│   │   ├── reset_db_schema.py
+│   │   └── orchestrate_ibkr_pipeline.py
+│   │
+│   ├── legacy/                     # Superseded scripts (archive only; do not import from production)
+│   │   └── README.md
+│   └── ops/                        # Operational helpers not part of the daily pipeline
 │
 ├── main/                           # Alternative main entry points
-│   ├── main_intelligent.py         # Intelligent scheduling
+│   ├── main_automated.py           # Scheduler-driven orchestration (canonical live runner)
 │   └── main-paper.py               # Paper trading mode
 │
 ├── data_files/                     # Data files (XML, JSON, CSV, logs)
@@ -107,8 +111,12 @@ global-macro-scanner/
 │       ├── csv/                    # CSV exports and reports
 │       └── logs/                   # Log files and output
 │
-└── backups/                        # Backup files
-    └── ib_insync/                  # IBKR backup files
+├── docs/
+│   ├── archive/                    # Retired planning docs and completed one-time checklists
+│   └── tasks/                      # Cleanup and task progress logs
+│
+└── backups/
+    └── ib_insync/                  # ib_insync migration backups (now empty)
 ```
 
 ## 🚀 Running the scanner
@@ -318,7 +326,7 @@ python scripts/testing/check_progress.py  # Shows row counts for all tables
 ┌─────────────────────────────────────────────────────────────────┐
 │                  ANALYTICAL LAYER                               │
 ├─────────────────────────────────────────────────────────────────┤
-│  stock_fundamentals ←───── flatten_ibkr_mega.py                 │
+│  stock_fundamentals ←───── scripts/etl/ibkr/flatten_ibkr_final.py │
 │  (81+ columns)                                                  │
 │                                                                 │
 │  current_market_data ←─── flatten_ibkr_market_data.py           │
@@ -367,7 +375,7 @@ CREATE TABLE prices_daily (
 |--------|---------|-------|--------|-----------|
 | `collect_historical_yfinance.py` | Bulk YFinance download | Fundamentals tickers | prices_daily | One-time |
 | `flatten_ibkr_market_data.py` | IBKR market data flattening | raw_ibkr_nse.mkt_data | current_market_data | As needed |
-| `flatten_ibkr_mega.py` | Fundamentals flattening | raw_ibkr_nse XML | stock_fundamentals | Quarterly |
+| `flatten_ibkr_final.py` | Fundamentals flattening | raw_ibkr_nse XML | stock_fundamentals | Quarterly |
 | `flatten_fd_nse.py` | FD data flattening | raw_fd_nse | stock_fundamentals_fd | As needed |
 
 ### **📊 Data Quality & Monitoring**

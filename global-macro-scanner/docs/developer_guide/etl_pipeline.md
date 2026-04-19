@@ -270,7 +270,7 @@ def check_pipeline_health():
 |--------|---------|-------|--------|-----------|
 | `scripts/etl/yfinance/collect_historical_yfinance.py` | Bulk YF download | Fundamentals tickers | prices_daily | One-time |
 | `scripts/etl/ibkr/flatten_ibkr_market_data.py` | Market data extraction | raw_ibkr_nse.mkt_data | current_market_data | As needed |
-| `flatten_ibkr_mega.py` | Fundamentals flattening | raw_ibkr_nse XML | stock_fundamentals | Quarterly |
+| `scripts/etl/ibkr/flatten_ibkr_final.py` | Fundamentals flattening | raw_ibkr_nse XML | stock_fundamentals | Quarterly |
 | `main.py` | Full pipeline orchestration | Universe spec | All tables | Daily |
 
 ## Error Recovery

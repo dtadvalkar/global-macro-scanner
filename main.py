@@ -1,16 +1,26 @@
-from global_macro_scanner.config.criteria import STOCK_CRITERIA, MACRO_CRITERIA
-from global_macro_scanner.config.markets import MARKETS
-from global_macro_scanner.screener.core import screen_equities
-from global_macro_scanner.screener.macro import screen_macro
-from global_macro_scanner.storage.csv import log_catches
-from global_macro_scanner.alerts.telegram import send_alerts
+from __future__ import annotations
 
-def daily_scan():
-    equity_catches = screen_equities(STOCK_CRITERIA, MARKETS['equities'])
-    macro_catches = screen_macro(MACRO_CRITERIA, MARKETS['macro'])
-    all_catches = equity_catches + macro_catches
-    log_catches(all_catches)
-    send_alerts(all_catches)
+import subprocess
+import sys
+from pathlib import Path
 
-if __name__ == '__main__':
-    daily_scan()
+
+REPO_ROOT = Path(__file__).resolve().parent
+SCANNER_ROOT = REPO_ROOT / "global-macro-scanner"
+SCANNER_MAIN = SCANNER_ROOT / "main.py"
+
+
+def main() -> int:
+    if not SCANNER_MAIN.exists():
+        print(
+            "The scanner entrypoint was not found at "
+            f"{SCANNER_MAIN}. Open {SCANNER_ROOT} and verify the checkout."
+        )
+        return 1
+
+    cmd = [sys.executable, str(SCANNER_MAIN), *sys.argv[1:]]
+    return subprocess.call(cmd, cwd=str(SCANNER_ROOT))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

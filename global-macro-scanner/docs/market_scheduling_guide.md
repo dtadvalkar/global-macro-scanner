@@ -37,7 +37,7 @@
 
 ```bash
 # Run with intelligent scheduling
-INTELLIGENT_SCHEDULING=true python main_intelligent.py
+python main/main_automated.py
 ```
 
 **Calculated Optimal Schedule:**
@@ -54,7 +54,7 @@ INTELLIGENT_SCHEDULING=true python main_intelligent.py
 schtasks /create /tn "MarketScan_NA" /tr "python main.py" /sc daily /st 07:30
 
 # Asian markets (7:30 PM MST)
-schtasks /create /tn "MarketScan_Asia" /tr "python main_intelligent.py asia" /sc daily /st 19:30
+schtasks /create /tn "MarketScan_Asia" /tr "python main/main_automated.py" /sc daily /st 19:30
 ```
 
 **Linux/Mac Cron:**
@@ -63,7 +63,7 @@ schtasks /create /tn "MarketScan_Asia" /tr "python main_intelligent.py asia" /sc
 30 14 * * 1-5 python main.py
 
 # Asian markets (7:30 PM MST = 02:30 UTC next day)
-30 2 * * 1-5 python main_intelligent.py asia
+30 2 * * 1-5 python main/main_automated.py
 ```
 
 ### Option 3: Environment Variable Control
@@ -204,7 +204,7 @@ scheduler.schedule_market_scan('north_america', lambda: scan_with_notification({
 python scheduler/market_scheduler.py
 
 # Test full scan pipeline once
-INTELLIGENT_SCHEDULING=true SCHEDULER_TEST=true python main_intelligent.py
+python main/main_automated.py --test-scheduler
 
 # Test specific market
 python main.py  # Will scan all markets once
@@ -227,7 +227,7 @@ python main.py  # Will scan all markets once
 ## Files Created
 
 1. **`scheduler/market_scheduler.py`** - Core scheduling logic
-2. **`main_intelligent.py`** - Scheduler-enabled main script
+2. **`main/main_automated.py`** - Scheduler-enabled main script
 3. **`docs/market_scheduling_guide.md`** - This documentation
 
 ## Quick Start
@@ -239,7 +239,7 @@ python main.py  # Will scan all markets once
 
 2. **Run intelligent scheduling:**
    ```bash
-   INTELLIGENT_SCHEDULING=true python main_intelligent.py
+   python main/main_automated.py
    ```
 
 3. **For production, add to cron/Windows Task Scheduler:**
