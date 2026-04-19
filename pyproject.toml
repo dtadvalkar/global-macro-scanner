@@ -1,8 +1,0 @@
-[project]
-name = "global-market-scanner-monorepo"
-version = "0.1.0"
-description = "Monorepo shell for the Global Market Scanner workspace; the active Python scanner project lives in global-macro-scanner/."
-requires-python = ">=3.11"
-# Scanner runtime dependencies are managed in global-macro-scanner/requirements.txt.
-# This pyproject.toml describes monorepo-level metadata only.
-dependencies = []

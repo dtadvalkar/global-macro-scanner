@@ -1,4 +1,4 @@
-# Run from global-macro-scanner/ with venv activated
+# Run from repo root with venv activated
 # Windows: use Git Bash or WSL
 
 PYTHON = python

@@ -1,6 +1,6 @@
 # 🚀 Getting Started
 
-> **Canonical setup reference:** `global-macro-scanner/README.md` — installation, env vars, and primary commands are authoritative there.
+> **Canonical setup reference:** `README.md` — installation, env vars, and primary commands are authoritative there.
 
 ## Overview
 
@@ -19,7 +19,7 @@ Before starting, ensure you have:
 ### Step 1: Installation
 ```bash
 git clone <repository-url>
-cd global-macro-scanner
+cd "Global Market Scanner"
 pip install -r requirements.txt
 ```
 
