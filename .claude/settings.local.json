@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(cp -r \"global-macro-scanner/.claude\" \".claude-nested\")",
+      "Bash(mv \"global-macro-scanner/AGENT_GUIDE.md\" \"AGENT_GUIDE.md\")",
+      "Bash(mv \"global-macro-scanner/GEMINI.md\" \"GEMINI.md\")",
+      "Bash(mv \"global-macro-scanner/.venv\" \".venv\")",
+      "Bash(mv \"global-macro-scanner/.env\" \".env\")",
+      "Bash(mv \"global-macro-scanner/.cursor\" \".cursor\")",
+      "Bash(mv \"global-macro-scanner/.continue\" \".continue\")",
+      "Bash(mv \"global-macro-scanner/screener\" \"screener\")",
+      "Bash(rm -rf \".claude-nested\")",
+      "Bash(rm -rf \"client\" \"server\" \"shared\")",
+      "Bash(rm -rf \".local\")",
+      "Bash(rm -rf \"C:/Dev/Global Market Scanner/global-macro-scanner\")",
+      "Bash(rm -rf \"C:/Dev/Global Market Scanner/scripts\")",
+      "Bash(PowerShell -Command \"Remove-Item -Recurse -Force 'C:\\\\Dev\\\\Global Market Scanner\\\\global-macro-scanner'\")",
+      "Bash(git commit -m ' *)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python db.py health)",
+      "Bash(.venv/Scripts/python -c ' *)",
+      "Bash(.venv/Scripts/python -c \"import yfinance as yf; import pandas as pd; print\\('yfinance:', yf.__version__\\); print\\('pandas:', pd.__version__\\)\")",
+      "Bash(.venv/Scripts/pip install *)",
+      "Bash(.venv/Scripts/python -c \"import yfinance as yf; print\\('yfinance:', yf.__version__\\)\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(.venv/Scripts/pip index *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(.venv/Scripts/python -m pip install yfinance==0.2.54)",
+      "Bash(.venv/Scripts/python -m pip install --upgrade yfinance)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python scripts/etl/yfinance/collect_historical_yfinance.py)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python scripts/testing/test_offline_screener.py)",
+      "Bash(git -C \"C:/Dev/Global Market Scanner\" status)",
+      "Bash(git -C \"C:/Dev/Global Market Scanner\" log --oneline -3)",
+      "Bash(git *)"
+    ]
+  }
+}
