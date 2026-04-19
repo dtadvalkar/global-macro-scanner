@@ -1,5 +1,7 @@
 # 🔧 Troubleshooting Guide
 
+> **Canonical setup reference:** `global-macro-scanner/README.md` — if you hit a setup issue, verify your environment matches what is documented there first.
+
 ## Overview
 
 Solutions to common issues encountered while using Global Market Scanner.

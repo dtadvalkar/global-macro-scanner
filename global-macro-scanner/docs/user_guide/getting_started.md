@@ -1,5 +1,7 @@
 # 🚀 Getting Started
 
+> **Canonical setup reference:** `global-macro-scanner/README.md` — installation, env vars, and primary commands are authoritative there.
+
 ## Overview
 
 Get up and running with Global Market Scanner in under 15 minutes. This guide covers your first scan and basic usage.

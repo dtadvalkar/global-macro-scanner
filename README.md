@@ -21,16 +21,7 @@ This is the **monorepo shell**. The only active Python scanner project is `globa
 - **Secrets**: `global-macro-scanner/.env` (never committed)
 - **Dependencies**: `global-macro-scanner/requirements.txt`
 
-### Getting started (scanner)
+### Getting started
 
-```bash
-cd global-macro-scanner
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-pip install -r requirements.txt
-cp .env.example .env            # fill in DB and API credentials
-python main.py --exchanges NSE --mode test
-```
-
-For full setup, architecture, and ETL docs see `global-macro-scanner/README.md`.
+See **`global-macro-scanner/README.md`** for installation, environment setup, required env vars, and primary commands.
 

@@ -2,6 +2,8 @@
 
 This file is the **single source of truth** for how Claude should work in this repository alongside Cursor. Follow it **literally** when making changes, proposing commands, or answering questions.
 
+Shared project rules also live in `AGENT_GUIDE.md`. If this file and `AGENT_GUIDE.md` ever diverge, follow the more project-specific instruction here and surface the conflict.
+
 ---
 
 ## 1. What this project is
@@ -35,21 +37,16 @@ If a path is ambiguous, **open the file** or grep before assuming.
 
 ---
 
-## 3. Environment and how to run
+## 3. Environment rules (agent-facing)
 
-- **Python**: Project targets **Python 3.12**. Canonical virtual environment: **`global-macro-scanner/.venv`** (i.e. `.venv` relative to this directory). Prefer the venv interpreter for installs and runs.
-- **Dependencies**: **`global-macro-scanner/requirements.txt`** is the authoritative dependency file. The outer-root `pyproject.toml` is monorepo metadata only; do not install from it for scanner work.
-- **Secrets**: Canonical location is **`global-macro-scanner/.env`** (same folder as `main.py`). Never commit secrets; never paste real passwords into docs or chat logs.
-- **UTF-8 on Windows**: Long-running / CLI scripts in this repo often set:
+> For full setup instructions see `README.md`. This section records only the rules agents must follow.
 
-  ```python
-  import sys, io
-  sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-  ```
+- **Venv**: `.venv` at scanner root. Never install into the outer-root `pyproject.toml` environment.
+- **Dependencies**: `requirements.txt` is authoritative. Do not add packages without user approval.
+- **Secrets**: `.env` at scanner root. Never commit or log secret values.
+- **UTF-8 on Windows**: Many scripts set `sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")`. Preserve this if present unless asked to remove it.
 
-  When editing such files, **preserve** this pattern if it already exists unless the user asks to remove it.
-
-**Typical commands** (from repo root, venv activated):
+**Typical commands** (from scanner root, venv activated):
 
 ```text
 python main.py --exchanges NSE --mode test
@@ -57,7 +54,7 @@ python db.py health
 python db.py validate
 ```
 
-Exact flags and behavior are defined in `main.py` and `config/` — do not invent new CLI contracts without user approval.
+Exact flags are defined in `main.py` and `config/` — do not invent new CLI contracts without user approval.
 
 ---
 
@@ -112,11 +109,12 @@ When debugging “wrong screen” issues, **verify**:
 
 ## 8. What to read first (onboarding order)
 
-1. `main.py` — daily pipeline and flags  
-2. `config/criteria.py` — screening thresholds  
-3. `db.py` — DB access patterns and CLI helpers  
-4. `DEVELOPMENT.md` — engineering principles (central DB access, avoid sprawl)  
-5. `README.md` / `docs/developer_guide/` — ETL and table documentation  
+1. `AGENT_GUIDE.md` — shared project contract  
+2. `main.py` — daily pipeline and flags  
+3. `config/criteria.py` — screening thresholds  
+4. `db.py` — DB access patterns and CLI helpers  
+5. `DEVELOPMENT.md` — engineering principles (central DB access, avoid sprawl)  
+6. `README.md` / `docs/developer_guide/` — ETL and table documentation  
 
 ---
 

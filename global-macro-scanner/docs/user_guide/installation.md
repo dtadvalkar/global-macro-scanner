@@ -1,5 +1,7 @@
 # 📦 Installation Guide
 
+> **Canonical setup reference:** `global-macro-scanner/README.md` — canonical Python version, venv location, and primary commands live there. This guide covers platform-specific detail and IBKR setup.
+
 ## Overview
 
 Complete installation instructions for Global Market Scanner across different environments.
