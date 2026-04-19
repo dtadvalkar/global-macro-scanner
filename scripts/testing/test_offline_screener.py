@@ -44,12 +44,16 @@ def test_offline_screener():
     cur.execute("""
         SELECT ticker, company_name, mkt_cap_usd
         FROM stock_fundamentals
-        WHERE ticker LIKE '%.NSE'
+        WHERE ticker LIKE '%.NS'
         ORDER BY ticker
     """)
     fundamentals_data = cur.fetchall()
 
     print(f"   ✅ Loaded {len(fundamentals_data)} NSE fundamentals")
+    if not fundamentals_data:
+        print("   ❌ No tickers found — check ticker format in stock_fundamentals")
+        conn.close()
+        return 0
     print(f"   📋 Sample: {fundamentals_data[0][0]} - {fundamentals_data[0][1][:30]}...")
 
     # 2. Load current market data
@@ -69,9 +73,8 @@ def test_offline_screener():
     cur.execute("""
         SELECT ticker, MIN(low) as week_52_low, MAX(high) as week_52_high
         FROM prices_daily
-        WHERE trade_date >= CURRENT_DATE - INTERVAL '365 days'
-        AND source = 'yf'
-        AND ticker LIKE '%.NSE'
+        WHERE price_date >= CURRENT_DATE - INTERVAL '365 days'
+        AND ticker LIKE '%.NS'
         GROUP BY ticker
     """)
 
@@ -111,9 +114,9 @@ def test_offline_screener():
         # 1. Price proximity to 52-week low
         if low_52w and low_52w > 0:
             pct_from_low = ((last_price - low_52w) / low_52w) * 100
-            if pct_from_low > CRITERIA['price_52w_low_pct'] * 100:
+            if pct_from_low > (CRITERIA['price_52w_low_pct'] - 1) * 100:
                 passed_criteria = False
-                reasons_failed.append(".1f")
+                reasons_failed.append(f"{pct_from_low:.1f}% from 52w low (>{(CRITERIA['price_52w_low_pct']-1)*100:.0f}% threshold)")
         else:
             passed_criteria = False
             reasons_failed.append("No 52w low data")
@@ -132,7 +135,7 @@ def test_offline_screener():
             pct_from_high = ((high_52w - last_price) / high_52w) * 100
             if pct_from_high < CRITERIA['price_52w_high_pct'] * 100:
                 passed_criteria = False
-                reasons_failed.append(".1f")
+                reasons_failed.append(f"{pct_from_high:.1f}% from 52w high (<{CRITERIA['price_52w_high_pct']*100:.0f}% threshold)")
 
         # 4. Minimum price threshold
         if last_price < CRITERIA['min_price']:
@@ -166,11 +169,11 @@ def test_offline_screener():
     if len(opportunities) > 0:
         print(f"\n🏆 TOP OPPORTUNITIES:")
         print("-"*70)
-        print("<12")
+        print(f"{'Ticker':<15} {'Company':<30} {'Price':>8} {'52wLow':>8} {'%FromLow':>9} {'Volume':>12}")
         print("-"*70)
 
-        for opp in opportunities[:10]:  # Show top 10
-            print("<12")
+        for opp in sorted(opportunities, key=lambda x: x['pct_from_low'])[:10]:
+            print(f"{opp['ticker']:<15} {opp['company']:<30} {opp['price']:>8.1f} {opp['low_52w']:>8.1f} {opp['pct_from_low']:>8.1f}% {opp['volume']:>12,}")
     else:
         print("\n📭 No opportunities found")
         print("\n💡 Possible reasons:")
