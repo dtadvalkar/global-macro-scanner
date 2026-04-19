@@ -20,7 +20,7 @@ Universe Layer → Raw Data Layer → Analytical Layer → Application Layer
 #### `tickers` - Master Security Registry
 ```sql
 CREATE TABLE tickers (
-    symbol TEXT PRIMARY KEY,              -- e.g., 'RELIANCE.NSE'
+    ticker TEXT PRIMARY KEY,              -- e.g., 'RELIANCE.NS'
     market TEXT NOT NULL,                 -- e.g., 'NSE', 'NYSE'
     status TEXT DEFAULT 'ACTIVE'
         CHECK (status IN ('ACTIVE', 'INACTIVE', 'ERROR')),
@@ -30,9 +30,9 @@ CREATE TABLE tickers (
 );
 
 -- Sample data
-INSERT INTO tickers (symbol, market, status) VALUES
-('RELIANCE.NSE', 'NSE', 'ACTIVE'),
-('TCS.NSE', 'NSE', 'ACTIVE');
+INSERT INTO tickers (ticker, market, status) VALUES
+('RELIANCE.NS', 'NSE', 'ACTIVE'),
+('TCS.NS', 'NSE', 'ACTIVE');
 ```
 
 ### Raw Data Layer
@@ -119,7 +119,7 @@ CREATE TABLE stock_fundamentals (
 
     -- Foreign Key Relationship
     CONSTRAINT fk_fundamentals_ticker
-        FOREIGN KEY (ticker) REFERENCES tickers(symbol)
+        FOREIGN KEY (ticker) REFERENCES tickers(ticker)
 );
 
 -- Partial view of 81+ columns
@@ -149,7 +149,7 @@ CREATE TABLE current_market_data (
 
     -- Foreign Key
     CONSTRAINT fk_market_data_ticker
-        FOREIGN KEY (ticker) REFERENCES tickers(symbol)
+        FOREIGN KEY (ticker) REFERENCES tickers(ticker)
 );
 
 -- Current market overview
@@ -168,34 +168,28 @@ ORDER BY volume DESC;
 #### `prices_daily` - Historical OHLCV Bars
 ```sql
 CREATE TABLE prices_daily (
-    ticker TEXT NOT NULL,
-    trade_date DATE NOT NULL,
-    open NUMERIC,
-    high NUMERIC,
-    low NUMERIC,
-    close NUMERIC,
-    adj_close NUMERIC,
-    volume BIGINT,
-    source TEXT NOT NULL,                -- 'yf' (YFinance), 'ibkr' (IBKR)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ticker        TEXT NOT NULL,
+    price_date    DATE NOT NULL,
+    open          NUMERIC,
+    high          NUMERIC,
+    low           NUMERIC,
+    close         NUMERIC,
+    volume        BIGINT,
+    datetimestamp TIMESTAMP DEFAULT NOW(),
 
-    PRIMARY KEY (ticker, trade_date, source),
-
-    -- Foreign Key
-    CONSTRAINT fk_prices_ticker
-        FOREIGN KEY (ticker) REFERENCES tickers(symbol)
+    PRIMARY KEY (ticker, price_date)
 );
 
 -- Historical price analysis
 SELECT
     ticker,
-    trade_date,
+    price_date,
     close,
     volume,
-    ROUND((close - LAG(close) OVER (PARTITION BY ticker ORDER BY trade_date)) / LAG(close) OVER (PARTITION BY ticker ORDER BY trade_date) * 100, 2) as daily_return
+    ROUND((close - LAG(close) OVER (PARTITION BY ticker ORDER BY price_date)) / LAG(close) OVER (PARTITION BY ticker ORDER BY price_date) * 100, 2) as daily_return
 FROM prices_daily
-WHERE source = 'yf' AND trade_date >= CURRENT_DATE - INTERVAL '30 days'
-ORDER BY ticker, trade_date;
+WHERE price_date >= CURRENT_DATE - INTERVAL '30 days'
+ORDER BY ticker, price_date;
 ```
 
 ## Indexing Strategy
@@ -219,9 +213,7 @@ CREATE INDEX idx_market_data_volume ON current_market_data(volume);
 CREATE INDEX idx_market_data_updated ON current_market_data(last_updated);
 
 -- Historical data analysis
-CREATE INDEX idx_prices_ticker_date ON prices_daily(ticker, trade_date);
-CREATE INDEX idx_prices_date_source ON prices_daily(trade_date, source);
-CREATE INDEX idx_prices_ticker_source ON prices_daily(ticker, source);
+CREATE INDEX idx_prices_ticker_date ON prices_daily(ticker, price_date);
 CREATE INDEX idx_prices_volume ON prices_daily(volume) WHERE volume > 0;
 ```
 
@@ -235,8 +227,8 @@ CREATE INDEX idx_large_cap_fundamentals ON stock_fundamentals(ticker)
 WHERE market_cap_usd > 10000000000;
 
 -- Recent price data
-CREATE INDEX idx_recent_prices ON prices_daily(trade_date)
-WHERE trade_date >= CURRENT_DATE - INTERVAL '1 year';
+CREATE INDEX idx_recent_prices ON prices_daily(price_date)
+WHERE price_date >= CURRENT_DATE - INTERVAL '1 year';
 ```
 
 ## Constraints & Data Integrity
@@ -247,10 +239,6 @@ WHERE trade_date >= CURRENT_DATE - INTERVAL '1 year';
 ALTER TABLE current_market_data
 ADD CONSTRAINT chk_positive_prices
 CHECK (last_price > 0 AND close_price > 0);
-
-ALTER TABLE prices_daily
-ADD CONSTRAINT chk_ohlc_valid
-CHECK (high >= open AND high >= close AND low <= open AND low <= close);
 
 -- Valid market caps
 ALTER TABLE stock_fundamentals
@@ -263,15 +251,11 @@ CHECK (market_cap_usd BETWEEN 1000000 AND 10000000000000);
 -- Ensure referential integrity
 ALTER TABLE stock_fundamentals
 ADD CONSTRAINT fk_fundamentals_ticker
-FOREIGN KEY (ticker) REFERENCES tickers(symbol) ON DELETE CASCADE;
+FOREIGN KEY (ticker) REFERENCES tickers(ticker) ON DELETE CASCADE;
 
 ALTER TABLE current_market_data
 ADD CONSTRAINT fk_market_data_ticker
-FOREIGN KEY (ticker) REFERENCES tickers(symbol) ON DELETE CASCADE;
-
-ALTER TABLE prices_daily
-ADD CONSTRAINT fk_prices_ticker
-FOREIGN KEY (ticker) REFERENCES tickers(symbol) ON DELETE CASCADE;
+FOREIGN KEY (ticker) REFERENCES tickers(ticker) ON DELETE CASCADE;
 ```
 
 ## Data Types & Storage Optimization
@@ -378,4 +362,4 @@ FROM current_market_data;
 
 ---
 
-**Status**: ✅ Complete | **Last Updated**: January 2025
+**Status**: ✅ Complete | **Last Updated**: April 2026

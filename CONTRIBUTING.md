@@ -50,7 +50,7 @@ make scan-test             # offline screener smoke test
 
 ## What not to do
 
-- Do not install packages into the outer-root `pyproject.toml` environment — use `global-macro-scanner/.venv` and `requirements.txt`
+- Do not install packages system-wide — use the `.venv` at repo root and `requirements.txt`
 - Do not commit `.env`, log files, or anything under `data_files/processed/`
 - Do not create new top-level scripts without proposing path + purpose first
 - Do not duplicate a query already in `db.py`

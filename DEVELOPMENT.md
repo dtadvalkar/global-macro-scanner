@@ -1,267 +1,140 @@
-Development
+# Development Guide
 
-This document describes how to work on this codebase, with a focus on keeping most data logic inside PostgreSQL and using Python as a thin integration layer.
-Tech stack
+This document describes how to work in this codebase. The core principle: keep data logic in SQL/PostgreSQL and use Python as a thin orchestration layer.
 
-    Language: Python (primary)
+## Tech stack
 
-    Database: PostgreSQL
+- **Language**: Python 3.12+
+- **Database**: PostgreSQL
+- **DB access**: `db.py` — single centralized module (pool, `query`/`execute`/`health_check` helpers)
+- **Data providers**: Yahoo Finance (bulk OHLCV), Interactive Brokers (fundamentals + live market snapshots)
+- **Screening**: `screener/` (universe + core logic, reads from `stock_fundamentals` + `prices_daily`)
 
-    DB access: A small set of centralized Python modules (e.g. db/session.py, db/api.py)
+## Repository layout
 
-    Migrations: Your preferred tool (e.g. Alembic, Django migrations, or raw SQL files)
+| Path | Role |
+|------|------|
+| `main.py` | Daily pipeline entrypoint; orchestrates collection → flatten → screen → alert |
+| `config/settings.py` | DB config (env-backed), application settings |
+| `config/criteria.py` | Screening thresholds |
+| `config/markets.py` | Market definitions |
+| `db.py` | **Sole** Python DB interface — add named methods here, not in ad-hoc scripts |
+| `screener/` | Universe management (`universe.py`) and screening engine (`core.py`) |
+| `data/` | Provider abstractions (`providers.py`), fundamentals cache (`cache_manager.py`) |
+| `storage/` | DB helpers (`database.py`), CSV logging (`csvlogging.py`) |
+| `alerts/` | Telegram integration |
+| `scripts/etl/yfinance/` | YFinance OHLCV collection (`collect_daily_yfinance.py`, `collect_historical_yfinance.py`) |
+| `scripts/etl/ibkr/` | IBKR fundamentals flattening and market data scripts |
+| `scripts/testing/` | Smoke tests and audit scripts (offline, no external calls) |
+| `scripts/utils/` | One-off utility scripts |
+| `docs/` | Architecture, schema, and user documentation |
+
+## Environment setup
 
-The core rule: application logic that is fundamentally about data transformation or querying should live in SQL/PLpgSQL rather than in ad‑hoc Python scripts.
-Project layout
-
-Adjust paths to match your repo, but the intended structure is:
-
-    db/
-
-        session.py – connection handling and low‑level helpers
-
-        api.py – functions that wrap SQL queries or stored procedures
-
-    sql/
-
-        functions/ – *.sql files defining Postgres functions and procedures
-
-        views/ – *.sql files defining views and materialized views
-
-    migrations/ – schema and data migrations
-
-    tools/
-
-        db_debug.py – optional single entrypoint for DB debugging utilities
-
-    app/ or similar – rest of the Python application
-
-All new database interactions should go through db/api.py (or an equivalent module documented here).
-Database access guidelines
-
-    Single abstraction layer
-
-        All direct database access from Python must go through the DB layer:
-
-            db/session.py handles:
-
-                Creating connections
-
-                Managing transactions
-
-                Returning cursors or high‑level query helpers
-
-            db/api.py exposes:
-
-                Small, well‑named functions that represent operations, e.g.
-
-                    get_user(user_id)
-
-                    recompute_metrics(user_id)
-
-                    backfill_orders(since)
-
-    Where logic lives
-
-        Use SQL or PL/pgSQL for:
-
-            Multi‑step data transformations
-
-            Complex joins and aggregations
-
-            Backfills and maintenance tasks
-
-            Any logic that primarily manipulates data in Postgres
-
-        Use Python for:
-
-            Orchestrating calls to functions/procedures
-
-            Handling HTTP requests, CLI arguments, and background jobs
-
-            Integrating with external services (queues, APIs, storage)
-
-    Preferred pattern
-
-        In SQL (in sql/functions/ or a migration):
-
-        sql
-        CREATE OR REPLACE FUNCTION analytics.recompute_metrics(user_id uuid)
-        RETURNS void
-        LANGUAGE plpgsql
-        AS $$
-        BEGIN
-          -- complex SQL logic here
-        END;
-        $$;
-
-        In Python (db/api.py):
-
-        python
-        from .session import get_connection
-
-        def recompute_metrics(user_id):
-            with get_connection() as conn, conn.cursor() as cur:
-                cur.execute(
-                    "SELECT analytics.recompute_metrics(%s)",
-                    (user_id,),
-                )
-
-        In application code:
-
-        python
-        from db.api import recompute_metrics
-
-        def handle_user_update(user_id):
-            recompute_metrics(user_id)
-
-    The goal is that application code never needs to know the SQL details.
-
-Rules for adding or changing code
-When you need new DB behavior
-
-    Ask: “Is this primarily data logic?”
-
-        If yes:
-
-            Add or modify a Postgres function/procedure or a view.
-
-            Add a thin wrapper in db/api.py.
-
-        If no (e.g. heavy external I/O or business rules involving multiple systems):
-
-            Implement logic in Python, but still keep DB interactions going through db/api.py.
-
-    Steps to implement:
-
-        Add/modify SQL in:
-
-            sql/functions/*.sql or
-
-            migrations/ (if it must be part of schema evolution)
-
-        Expose a Python wrapper in db/api.py.
-
-        Call that wrapper from the rest of the app.
-
-    Do not:
-
-        Create new standalone Python scripts for one‑off DB operations.
-
-        Add scattered raw SQL calls throughout the codebase.
-
-        Duplicate queries in multiple places.
-
-Creating or modifying migrations
-
-    Schema changes (tables, indexes, constraints) always go through migrations.
-
-    Function/procedure/view changes can be:
-
-        In migrations (for versioned deployment), or
-
-        In dedicated sql/functions/*.sql and sql/views/*.sql files that are applied by your migration tool or startup logic.
-
-    Keep migrations idempotent and backward‑compatible where possible.
-
-Debugging and ad‑hoc operations
-
-To avoid “debug script sprawl”:
-
-    Use one of the following:
-
-        A database client (psql, GUI) for pure SQL experimentation.
-
-        A single Python entrypoint, tools/db_debug.py, for:
-
-            Calling existing functions/procedures with different parameters.
-
-            Running small one‑off maintenance tasks that still use db/api.py.
-
-Rules:
-
-    Do not create new debug scripts under random paths.
-
-    Extend tools/db_debug.py with new subcommands instead.
-
-    If you discover useful logic during debugging:
-
-        Move it into SQL/PLpgSQL and/or db/api.py.
-
-        Keep db_debug.py as a caller, not a place for core logic.
-
-Python coding conventions for DB access
-
-    Use a consistent DB driver (e.g. psycopg/psycopg2, SQLAlchemy core, etc.).
-
-    Centralize connection parameters (host, port, user, password, dbname) in configuration, not scattered literals.
-
-    Always:
-
-        Use context managers (with get_connection() as conn) to ensure connections are closed.
-
-        Handle transactions explicitly (commit/rollback) in the DB layer, not at random call sites.
-
-    Keep DB API functions small:
-
-        One function should generally correspond to a single SQL statement or a single function/procedure call.
-
-        Return plain Python types or simple dataclasses, not raw cursor objects.
-
-How to add a new feature that uses the database
-
-When implementing a new feature:
-
-    Design what the DB operation should be:
-
-        Inputs (parameters)
-
-        Outputs (rows, status, nothing)
-
-    Add a SQL function/procedure/view if needed.
-
-    Add a wrapper in db/api.py with:
-
-        A descriptive name
-
-        A clear signature
-
-    Call that wrapper from your service/handler/task code.
-
-    If the feature needs manual triggering or debugging:
-
-        Add a subcommand to tools/db_debug.py that uses the same API function.
-
-Example:
-
-    Feature: “Rebuild metrics for all users updated in the last day”
-
-        SQL: analytics.rebuild_recent_metrics(since timestamp)
-
-        Python wrapper: db.api.rebuild_recent_metrics(since: datetime)
-
-        CLI: python tools/db_debug.py rebuild_recent_metrics --since 2026-01-19T00:00:00
-
-Testing
-
-    Unit tests:
-
-        Prefer to test Python wrappers (db/api.py) with a test database.
-
-        Avoid mocking SQL unless absolutely necessary; integration‑style tests give more confidence.
-
-    Database tests:
-
-        Use migrations or fixtures to prepare schema and seed data.
-
-        Call SQL functions/procedures either directly (via SQL) or through their Python wrappers.
-
-Summary of expectations
-
-    Most data logic: inside PostgreSQL (functions, procedures, views).
-
-    Python: thin layer for calling DB logic, orchestrating flows, and integrating external systems.
-
-    Database access: centralized in db/session.py and db/api.py.
-
-    Debugging: at most one Python debug entrypoint; no proliferation of tiny throwaway scripts.
+```bash
+# From repo root — activate the project venv
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # macOS/Linux
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy and fill in secrets
+cp .env.example .env            # edit DB_NAME, DB_USER, DB_PASSWORD, IBKR_*, TELEGRAM_*
+```
+
+> **Never** install into a system or outer-root environment. `.venv` at repo root is authoritative.
+
+## Running the pipeline
+
+```bash
+# From repo root with venv activated:
+PYTHONPATH='.' python main.py --exchanges NSE --mode test   # quick test (top 200 tickers)
+PYTHONPATH='.' python main.py --exchanges NSE --mode live   # full scan
+
+# DB health and diagnostics
+python db.py health
+python db.py validate
+python db.py info --table stock_fundamentals
+```
+
+## ETL scripts (run order for a fresh setup)
+
+```bash
+# 1. Populate fundamentals (requires IBKR TWS running)
+PYTHONPATH='.' python scripts/etl/ibkr/flatten_ibkr_final.py
+
+# 2. Populate historical OHLCV (one-time; ~60s for 398 tickers × 10y)
+PYTHONPATH='.' python scripts/etl/yfinance/collect_historical_yfinance.py
+
+# 3. Flatten IBKR market snapshots into current_market_data (after market hours)
+PYTHONPATH='.' python scripts/etl/ibkr/flatten_ibkr_market_data.py
+
+# 4. Run offline screener smoke test
+PYTHONPATH='.' python scripts/testing/test_offline_screener.py
+```
+
+## Database access guidelines
+
+### Rule: one place for DB access
+
+All Python-side DB interactions go through `db.py`. Do not create new standalone scripts that open their own `psycopg2.connect()` calls for simple queries.
+
+```python
+from db import get_db
+
+db = get_db()
+results = db.query("SELECT ticker, close FROM prices_daily WHERE price_date = %s", (today,))
+```
+
+### Adding new DB behavior
+
+1. Add a named method to the `Database` class in `db.py` (or reuse `query`/`execute` inline for one-off ETL).
+2. For multi-step data transformations or aggregations, prefer a SQL view or function over Python loops.
+3. Never duplicate an existing query — check `db.py` first.
+
+### Preferred pattern for new data operations
+
+```python
+# In db.py — add a named method
+def get_recent_prices(self, ticker: str, days: int = 30):
+    return self.query(
+        """
+        SELECT price_date, close, volume
+        FROM prices_daily
+        WHERE ticker = %s AND price_date >= CURRENT_DATE - INTERVAL '%s days'
+        ORDER BY price_date
+        """,
+        (ticker, days),
+    )
+```
+
+## Coding conventions
+
+- Match the style of neighboring code (imports, logging, error handling).
+- **Minimal diffs**: only touch what the task requires.
+- **No new ad-hoc scripts** for one-off DB checks — use `db.py health/validate` or extend an existing script under `scripts/testing/`.
+- **YFinance**: use the bulk `yf.download(tickers=space_joined_string, ...)` pattern — never per-ticker loops.
+- **IBKR**: NSE-only scope; do not reintroduce fundamentals calls into market-data-only paths.
+- Scripts that must be run standalone should set `PYTHONPATH='.'` as documented above.
+
+## Testing
+
+| Scenario | Location | How to run |
+|----------|----------|-----------|
+| Offline screener (no external calls) | `scripts/testing/test_offline_screener.py` | `PYTHONPATH='.' python scripts/testing/test_offline_screener.py` |
+| DB health | `db.py` | `python db.py health` |
+| Data integrity | `db.py` | `python db.py validate` |
+| IBKR connectivity (requires TWS) | `tests/` | `PYTHONPATH='.' pytest tests/` |
+
+## Data model quick reference
+
+| Table | Source | Key columns | Update cadence |
+|-------|--------|-------------|----------------|
+| `tickers` | Manual / FinanceDatabase | `ticker`, `status` | As needed |
+| `stock_fundamentals` | IBKR XML | 81+ financial metrics | Quarterly |
+| `raw_ibkr_nse` | IBKR | `xml_snapshot`, `mkt_data` (JSONB) | Daily |
+| `current_market_data` | IBKR (flattened) | `last_price`, `volume` | Daily |
+| `prices_daily` | YFinance | `ticker`, `price_date`, OHLCV | Daily (incremental) / one-time bulk |
+
+See `docs/developer_guide/database_schema.md` for full column definitions.

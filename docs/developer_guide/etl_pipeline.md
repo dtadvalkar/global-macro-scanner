@@ -54,18 +54,21 @@ update_raw_ibkr_mkt_data(ticker, market_data)
 
 #### YFinance Historical
 ```python
-# Extract: Bulk OHLCV download
-data_hist = yf.download(
-    tickers=ticker_list,
-    period="2y",
-    interval="1d",
-    threads=True
+# Extract: Bulk OHLCV download (all 398 tickers in one request)
+raw = yf.download(
+    tickers=" ".join(ticker_list),
+    period="10y",
+    group_by="ticker",
+    auto_adjust=False,
+    threads=True,
 )
 
-# Load: Parse and store OHLCV
-for ticker in ticker_list:
-    df = data_hist[ticker].dropna()
-    insert_prices_daily_batch(ticker, df)
+# Flatten MultiIndex → (ticker, price_date, open, high, low, close, volume)
+df = raw.stack(level=0).reset_index()
+df.rename(columns={"Date": "price_date", "Ticker": "ticker", ...}, inplace=True)
+
+# Load: Bulk upsert into prices_daily
+execute_values(cur, INSERT_ON_CONFLICT_SQL, records, page_size=1000)
 ```
 
 ## Stage 2: Transform (Data Processing)
@@ -268,9 +271,10 @@ def check_pipeline_health():
 
 | Script | Purpose | Input | Output | Frequency |
 |--------|---------|-------|--------|-----------|
-| `scripts/etl/yfinance/collect_historical_yfinance.py` | Bulk YF download | Fundamentals tickers | prices_daily | One-time |
-| `scripts/etl/ibkr/flatten_ibkr_market_data.py` | Market data extraction | raw_ibkr_nse.mkt_data | current_market_data | As needed |
-| `scripts/etl/ibkr/flatten_ibkr_final.py` | Fundamentals flattening | raw_ibkr_nse XML | stock_fundamentals | Quarterly |
+| `scripts/etl/yfinance/collect_historical_yfinance.py` | 10-year bulk YF backfill | `stock_fundamentals` tickers | `prices_daily` | One-time |
+| `scripts/etl/yfinance/collect_daily_yfinance.py` | Daily OHLCV incremental | `tickers` (ACTIVE) | `prices_daily` | Daily |
+| `scripts/etl/ibkr/flatten_ibkr_market_data.py` | Market data extraction | `raw_ibkr_nse.mkt_data` | `current_market_data` | Daily |
+| `scripts/etl/ibkr/flatten_ibkr_final.py` | Fundamentals flattening | `raw_ibkr_nse` XML | `stock_fundamentals` | Quarterly |
 | `main.py` | Full pipeline orchestration | Universe spec | All tables | Daily |
 
 ## Error Recovery

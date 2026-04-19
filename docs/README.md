@@ -47,9 +47,8 @@ This documentation is organized for different audiences and use cases:
 - ⚠️ **Outdated** - Needs updating
 
 ### Version Information
-- **Last Updated**: January 2025
-- **Version**: 1.0.0
-- **Python**: 3.10+
+- **Last Updated**: April 2026
+- **Python**: 3.12+
 
 ## 🤝 Contributing to Documentation
 

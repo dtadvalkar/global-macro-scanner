@@ -112,7 +112,7 @@ prices_daily (historical prices)
 -- Performance optimization
 CREATE INDEX idx_tickers_status ON tickers(status);
 CREATE INDEX idx_fundamentals_mcap ON stock_fundamentals(market_cap_usd);
-CREATE INDEX idx_prices_ticker_date ON prices_daily(ticker, trade_date);
+CREATE INDEX idx_prices_ticker_date ON prices_daily(ticker, price_date);
 ```
 
 ### API Integration Patterns

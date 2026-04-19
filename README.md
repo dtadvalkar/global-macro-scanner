@@ -16,8 +16,8 @@ A **premium** Python‑based macro‑scanner that pulls market data from **Inter
 ## 📦 Installation
 ```bash
 # Clone the repo
-git clone https://github.com/yourorg/global-macro-scanner.git
-cd global-macro-scanner
+git clone https://github.com/dtadvalkar/global-macro-scanner.git
+cd "Global Market Scanner"
 
 # Create and activate virtual environment (Python 3.12)
 python -m venv .venv
@@ -34,10 +34,9 @@ pip install -r requirements.txt
 ## 📁 Project Structure
 
 ```
-global-macro-scanner/
+Global Market Scanner/
 ├── main.py                          # Main entry point for daily pipeline
 ├── README.md                        # This documentation
-├── implementation_plan.md           # Detailed implementation notes
 ├── requirements.txt                 # Python dependencies
 ├── .env                            # Environment variables (not in git)
 │
@@ -68,8 +67,8 @@ global-macro-scanner/
 ├── scripts/                        # Organized scripts by purpose
 │   ├── etl/                        # Data extraction/transformation/load
 │   │   ├── yfinance/               # YFinance data processing
-│   │   │   ├── collect_historical_yfinance.py
-│   │   │   └── test_raw_ingestion.py
+│   │   │   ├── collect_daily_yfinance.py
+│   │   │   └── collect_historical_yfinance.py
 │   │   ├── ibkr/                   # IBKR data processing
 │   │   │   ├── collect_daily_ibkr_market_data.py
 │   │   │   ├── flatten_ibkr_market_data.py
@@ -165,7 +164,7 @@ See `setup_mcp_database.md` for detailed MCP setup instructions.
 ### 🏛️ Core Tables
 ```sql
 CREATE TABLE IF NOT EXISTS tickers (
-    symbol TEXT PRIMARY KEY,
+    ticker TEXT PRIMARY KEY,
     market TEXT,
     status TEXT DEFAULT 'ACTIVE',
     status_message TEXT,
@@ -173,19 +172,18 @@ CREATE TABLE IF NOT EXISTS tickers (
 );
 ```
 
-### 📡 Unified Price Data (Recurring)
+### 📡 Historical Price Data
 ```sql
 CREATE TABLE IF NOT EXISTS prices_daily (
-    ticker       TEXT,
-    trade_date   DATE,
-    open         NUMERIC,
-    high         NUMERIC,
-    low          NUMERIC,
-    close        NUMERIC,
-    adj_close    NUMERIC,
-    volume       BIGINT,
-    source       TEXT NOT NULL,  -- 'ibkr', 'yf', etc.
-    PRIMARY KEY (ticker, trade_date, source)
+    ticker        TEXT NOT NULL,
+    price_date    DATE NOT NULL,
+    open          NUMERIC,
+    high          NUMERIC,
+    low           NUMERIC,
+    close         NUMERIC,
+    volume        BIGINT,
+    datetimestamp TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (ticker, price_date)
 );
 ```
 
@@ -228,7 +226,7 @@ Raw Data Sources → Archival Layer → Analytical Layer → Application Layer
 - Market Data Flattening → `current_market_data` (structured current prices)
 
 **Phase 3: Historical Data Collection**
-- YFinance Bulk Download → `prices_daily` (2-year OHLCV history)
+- YFinance Bulk Download → `prices_daily` (10-year OHLCV history)
 
 ### **🗂️ Complete Table Architecture**
 
@@ -257,7 +255,7 @@ Raw Data Sources → Archival Layer → Analytical Layer → Application Layer
 ### **📈 Market Data Collection Systems**
 
 #### **1. YFinance Historical Data Collection**
-**Purpose**: One-time bulk download of 2 years of daily OHLCV data for all fundamentals tickers.
+**Purpose**: One-time bulk download of 10 years of daily OHLCV data for the 398 curated NSE tickers in `stock_fundamentals`.
 
 **Script**: `collect_historical_yfinance.py`
 ```bash
@@ -266,9 +264,8 @@ python scripts/etl/yfinance/collect_historical_yfinance.py
 
 **Features**:
 - ✅ Bulk download with threading (avoids rate limits)
-- ✅ Automatic ticker format conversion (`.NSE` → `.NS`)
 - ✅ Error handling and progress tracking
-- ✅ Stores in `prices_daily` with `source='yf'`
+- ✅ Safe re-run: `ON CONFLICT (ticker, price_date) DO UPDATE`
 
 **Data Flow**:
 ```
@@ -354,19 +351,18 @@ CREATE TABLE current_market_data (
 );
 ```
 
-#### **prices_daily Table** (Enhanced)
+#### **prices_daily Table**
 ```sql
 CREATE TABLE prices_daily (
-    ticker TEXT,
-    trade_date DATE,
-    open NUMERIC,
-    high NUMERIC,
-    low NUMERIC,
-    close NUMERIC,
-    adj_close NUMERIC,
-    volume BIGINT,
-    source TEXT NOT NULL,    -- 'yf' for YFinance, 'ibkr' for IBKR
-    PRIMARY KEY (ticker, trade_date, source)
+    ticker        TEXT NOT NULL,
+    price_date    DATE NOT NULL,
+    open          NUMERIC,
+    high          NUMERIC,
+    low           NUMERIC,
+    close         NUMERIC,
+    volume        BIGINT,
+    datetimestamp TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (ticker, price_date)
 );
 ```
 
