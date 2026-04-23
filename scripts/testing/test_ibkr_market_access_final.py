@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """
-FINAL DEFINITIVE TEST: IBKR Market Data Access Confirmation
-Tests IBKR market data access for specified exchanges or ALL markets if none specified.
+IBKR Market Data Access Test — confirms which exchanges deliver free delayed data via API.
 
 Usage:
-    python test_ibkr_market_access_final.py                    # Test all markets
-    python test_ibkr_market_access_final.py --exchanges NSE    # Test only NSE
-    python test_ibkr_market_access_final.py --exchanges NSE,SMART,ASX  # Test multiple
+    python test_ibkr_market_access_final.py                         # Test all markets
+    python test_ibkr_market_access_final.py --exchanges NSE         # Test only NSE
+    python test_ibkr_market_access_final.py --exchanges NSE,ASX     # Test multiple
 
-Available exchanges: ASX, BSE, HKEX, IBIS, IDX, LSE, NSE, SBF, SEHK, SET, SGX, SMART, TSE
+Free via IBKR (no subscription): NSE, BSE, ASX, SGX, SEHK, LSE, JSE, TADAWUL
+Needs paid subscription:         SMART (US), TSE (Canada), IBIS (Germany), SBF (France), TSEJ (Japan)
+Not in IBKR (yfinance-only):     KSE (Korea), TWSE (Taiwan), BOVESPA (Brazil), Bursa (Malaysia),
+                                  SET (Thailand), IDX (Indonesia)
+
+Symbol format notes:
+  SEHK: strip leading zeros  — 0005 -> 5
+  LSE:  trailing period       — BP   -> BP.
+  TSEJ: Tokyo Stock Exchange  — NOT TSE (that is Toronto/Canada)
+
+Last verified: 2026-04-22 via live TWS diagnostics.
 """
 import asyncio
 from datetime import datetime
@@ -222,31 +231,32 @@ async def main():
     print("Connected successfully. Starting comprehensive market access tests...")
     print("This test will provide CONCLUSIVE evidence for IBKR support calls.")
 
-    # Test all markets comprehensively
+    # Market list — updated 2026-04-22 after live TWS diagnostics.
+    # Symbol format rules:
+    #   SEHK: strip leading zeros (0005 -> 5, 0700 -> 700)
+    #   LSE:  add trailing period (BP -> BP., HSBA -> HSBA.)
+    #   TSEJ: Tokyo Stock Exchange Japan (NOT TSE which is Toronto/Canada)
     markets_to_test = [
-        # Currently working (should confirm)
-        ("US", "AAPL", "SMART", "USD"),
-        ("India", "RELIANCE", "NSE", "INR"),
-        ("India BSE", "HDFCBANK", "BSE", "INR"),
+        # --- FREE via IBKR Type 3 Delayed (confirmed 2026-04-22) ---
+        ("India NSE",        "RELIANCE", "NSE",     "INR"),
+        ("India BSE",        "HDFCBANK", "BSE",     "INR"),
+        ("Australia",        "CBA",      "ASX",     "AUD"),
+        ("Singapore",        "D05",      "SGX",     "SGD"),
+        ("Hong Kong",        "5",        "SEHK",    "HKD"),   # HSBC; strip leading zero
+        ("UK",               "BP.",      "LSE",     "GBP"),   # trailing period required
+        ("South Africa",     "NPN",      "JSE",     "ZAR"),
+        ("Saudi Arabia",     "2222",     "TADAWUL", "SAR"),   # Aramco; Vision 2030 mandate
 
-        # Contract qualified but no historical data (permissions issue?)
-        ("Canada", "RY", "TSE", "CAD"),
-        ("Germany", "BMW", "IBIS", "EUR"),
-        ("France", "MC", "SBF", "EUR"),
+        # --- IBKR subscription required (contracts qualify, Error 162 on data) ---
+        ("US",               "AAPL",    "SMART",   "USD"),
+        ("Canada",           "RY",      "TSE",     "CAD"),
+        ("Germany",          "BMW",     "IBIS",    "EUR"),
+        ("France",           "MC",      "SBF",     "EUR"),
+        ("Japan",            "7203",    "TSEJ",    "JPY"),    # TSEJ = Tokyo; TSE = Toronto
 
-        # Fully working new markets
-        ("Australia", "CBA", "ASX", "AUD"),
-        ("Singapore", "D05", "SGX", "SGD"),
-
-        # Failed markets (should confirm failure)
-        ("UK", "BP", "LSE", "GBP"),
-        ("Japan", "7203", "TSE", "JPY"),
-        ("Hong Kong", "0005", "SEHK", "HKD"),
-        ("Hong Kong", "0001", "HKEX", "HKD"),
-
-        # Known not supported
-        ("Thailand", "PTT", "SET", "THB"),
-        ("Indonesia", "BBRI", "IDX", "IDR"),
+        # --- Not available in IBKR; use yfinance bulk (.KS/.TW/.SA/.KL/.BK/.JK) ---
+        # Korea (KSE/KRX), Taiwan (TWSE), Brazil (BOVESPA), Malaysia (Bursa),
+        # Thailand (SET), Indonesia (IDX) — exchange codes not recognised by IBKR API.
     ]
 
     # Filter markets based on command line arguments
@@ -256,24 +266,11 @@ async def main():
         markets_to_test = [market for market in markets_to_test if market[2].upper() in requested_exchanges]
 
         if not markets_to_test:
-            print("No matching exchanges found. Available exchanges:")
-            all_exchanges = set(market[2] for market in [
-                ("US", "AAPL", "SMART", "USD"),
-                ("India", "RELIANCE", "NSE", "INR"),
-                ("India BSE", "HDFCBANK", "BSE", "INR"),
-                ("Canada", "RY", "TSE", "CAD"),
-                ("Germany", "BMW", "IBIS", "EUR"),
-                ("France", "MC", "SBF", "EUR"),
-                ("Australia", "CBA", "ASX", "AUD"),
-                ("Singapore", "D05", "SGX", "SGD"),
-                ("UK", "BP", "LSE", "GBP"),
-                ("Japan", "7203", "TSE", "JPY"),
-                ("Hong Kong", "0005", "SEHK", "HKD"),
-                ("Hong Kong", "0001", "HKEX", "HKD"),
-                ("Thailand", "PTT", "SET", "THB"),
-                ("Indonesia", "BBRI", "IDX", "IDR"),
-            ])
+            print("No matching exchanges found. Available IBKR exchanges:")
+            all_exchanges = set(market[2] for market in markets_to_test)
             print(", ".join(sorted(all_exchanges)))
+            print("\nNote: Korea (KSE), Taiwan (TWSE), Brazil (BOVESPA), Malaysia (Bursa),")
+            print("      Thailand (SET), Indonesia (IDX) are yfinance-only — not in IBKR.")
             return
     else:
         print("Testing all exchanges...")

@@ -1,0 +1,19 @@
+{
+  "exchange": "TADAWUL",
+  "index_name": "Tadawul All-Share Index (TASI) — large-cap selection",
+  "source_date": "2026-04-22",
+  "refresh_note": "TASI has ~200 constituents; this list is a curated large-cap subset. Refresh from https://www.saudiexchange.sa/ every 6–12 months.",
+  "ticker_format": "yfinance (numeric code + .SR, e.g. 2222.SR for Saudi Aramco)",
+  "tickers": [
+    "1010.SR", "1020.SR", "1030.SR", "1040.SR", "1050.SR",
+    "1060.SR", "1080.SR", "1120.SR", "1140.SR", "1150.SR",
+    "1180.SR", "1211.SR", "1303.SR", "2010.SR", "2020.SR",
+    "2030.SR", "2040.SR", "2050.SR", "2060.SR", "2080.SR",
+    "2170.SR", "2222.SR", "2230.SR", "2280.SR", "2290.SR",
+    "2310.SR", "2330.SR", "2350.SR", "2380.SR", "3020.SR",
+    "3030.SR", "3040.SR", "3080.SR", "4002.SR", "4003.SR",
+    "4013.SR", "4190.SR", "4200.SR", "4240.SR", "4261.SR",
+    "4280.SR", "4300.SR", "5110.SR", "6004.SR", "6010.SR",
+    "7010.SR", "7020.SR", "7200.SR", "8010.SR", "8210.SR"
+  ]
+}

@@ -310,6 +310,14 @@ class YFinanceProvider(BaseProvider):
                             'time': datetime.now()
                         }
 
+                        if len(hist) >= 20:
+                            symbol_data['avg_volume_20d'] = hist['Volume'].tail(20).mean()
+
+                        low_series = hist['Low'].tail(252) if len(hist) >= 252 else hist['Low']
+                        if len(low_series) > 0:
+                            low_date = low_series.idxmin()
+                            symbol_data['days_since_low'] = (datetime.now() - low_date.replace(tzinfo=None)).days
+
                         # Calculate additional technical indicators if enabled
                         if criteria.get('rsi_enabled', False):
                             symbol_data['rsi'] = calculate_rsi(hist['Close'])
@@ -373,21 +381,13 @@ class IBKRProvider(BaseProvider):
         self.db = get_db()
 
     def _get_exchange_from_symbol(self, symbol):
-        """Extract exchange from symbol suffix"""
-        if symbol.endswith('.NS'):
-            return 'NSE'
-        elif symbol.endswith('.TO'):
-            return 'TSE'
-        elif symbol.endswith('.AX'):
-            return 'ASX'
-        elif symbol.endswith('.SI'):
-            return 'SGX'
-        elif symbol.endswith('.DE'):
-            return 'IBIS'
-        elif symbol.endswith('.PA'):
-            return 'SBF'
-        else:
-            return 'SMART'  # US stocks
+        """Return IBKR exchange code for a yfinance-format ticker.
+
+        Delegates to exchange_from_yf_ticker() which is derived from
+        MARKET_REGISTRY — a single source of truth in config/markets.py.
+        """
+        from config.markets import exchange_from_yf_ticker
+        return exchange_from_yf_ticker(symbol) or 'SMART'  # 'SMART' = US/no suffix
 
     def _fetch_fundamentals_from_sources(self, symbol, exchange, currency):
         """Fetch fundamentals from multiple data sources with rate limiting"""
@@ -747,12 +747,18 @@ class IBKRScannerProvider(BaseProvider):
         self.client_id = client_id
         self.ib = IB()
 
-    def get_scanner_results(self, instrument, location, scan_code):
-        """Option B: Direct Server-Side Scan using delayed data (Type 3)"""
+    def get_scanner_results(self, instrument, location, scan_code, exchange=''):
+        """Option B: Direct Server-Side Scan using delayed data (Type 3).
+
+        exchange is the MARKET_REGISTRY key (e.g. 'SEHK', 'LSE', 'JSE').
+        ibkr_to_yfinance() from config.markets handles all per-exchange symbol
+        transformations (LSE trailing-period stripping, suffix appending, etc.)
+        in one place.
+        """
+        from config.markets import ibkr_to_yfinance
         try:
             if not self.ib.isConnected():
                 self.ib.connect(self.host, self.port, clientId=self.client_id)
-                # Ensure we're using delayed data (Type 3) for scanner operations
                 self.ib.reqMarketDataType(3)
 
             subscription = ScannerSubscription(
@@ -760,17 +766,15 @@ class IBKRScannerProvider(BaseProvider):
                 locationCode=location,
                 scanCode=scan_code
             )
-            
+
             print(f"🔎 IBKR Server Scan: {location} ({scan_code})...")
             scan_data = self.ib.reqScannerData(subscription)
-            
+
             results = []
             for item in scan_data:
-                # We need historical data for the actual 52w low calculation
-                # because the scanner just gives us the rank.
-                results.append(item.contractDetails.contract.symbol + 
-                              ('.TO' if 'CANADA' in location else ''))
-            
+                raw = item.contractDetails.contract.symbol
+                results.append(ibkr_to_yfinance(raw, exchange) if exchange else raw)
+
             return results
         except Exception as e:
             print(f"  ⚠️ Scanner error: {e}")

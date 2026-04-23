@@ -245,14 +245,18 @@ if __name__ == '__main__':
 
         # Map exchange codes to market keys (based on config/markets.py)
         exchange_to_market_key = {
-            'NSE': 'nse',      # India NSE
-            'TSE': 'tsx',      # Canada TSE
-            'ASX': 'asx',      # Australia ASX
-            'SGX': 'sgx',      # Singapore SGX
-            'IBIS': 'xetra',   # Germany IBIS/XETRA
-            'SBF': 'sbf',      # France SBF
-            'SET': 'set',      # Thailand SET (YFinance only)
-            'IDX': 'idx',      # Indonesia IDX (YFinance only)
+            'NSE':     'nse',      # India NSE
+            'TSE':     'tsx',      # Canada TSE
+            'ASX':     'asx',      # Australia ASX
+            'SGX':     'sgx',      # Singapore SGX
+            'IBIS':    'xetra',    # Germany IBIS/XETRA
+            'SBF':     'sbf',      # France SBF
+            'SEHK':    'sehk',     # Hong Kong SEHK
+            'LSE':     'lse',      # UK LSE
+            'JSE':     'jse',      # South Africa JSE
+            'TADAWUL': 'tadawul',  # Saudi Arabia TADAWUL
+            'SET':     'set',      # Thailand SET (YFinance only)
+            'IDX':     'idx',      # Indonesia IDX (YFinance only)
         }
 
         # Disable all markets first
@@ -272,7 +276,7 @@ if __name__ == '__main__':
 
         if unsupported_exchanges:
             print(f"Warning: These exchanges are not supported or not configured: {', '.join(unsupported_exchanges)}")
-            print("Available exchanges: NSE, TSE, ASX, SGX, IBIS, SBF, SET, IDX")
+            print(f"Available exchanges: {', '.join(sorted(exchange_to_market_key.keys()))}")
 
         if enabled_count == 0:
             print("No valid exchanges found. Available exchanges:")

@@ -1,297 +1,318 @@
-# 🎯 Global Market Scanner - Master Development Plan
+# Global Market Scanner — Master Development Plan
 
 ## Overview
-This document outlines the comprehensive development roadmap for the Global Market Scanner, a sophisticated stock screening system that identifies high-potential trading opportunities across global markets using IBKR and YFinance data sources.
+Global Market Scanner is a stock screening system that identifies high-potential trading opportunities near 52-week lows across global markets, combining IBKR (NSE and accessible markets) and YFinance (bulk OHLCV history and fallback markets) data sources.
 
-## 📊 Current Status
-**Progress: 2 of 9 Major Tasks Completed (22% Complete)**
-- ✅ **Enhanced Scanning Logic** - Technical indicators (RSI, MA, ATR), pattern recognition, and advanced filtering implemented
-- ✅ **Performance Optimizations** - Optimized YFinance provider with intelligent caching, parallel processing, and adaptive rate limiting
+## Current Status
+**Progress: 10 of 10 Phase 1 tasks complete**
 
-**Next Priority**: Test enhanced scanning with current accessible markets (India, Australia, Singapore)
+| # | Task | Status |
+|---|------|--------|
+| 1 | Enhanced Scanning Logic | ✅ DONE |
+| 2 | Performance Optimizations | ✅ DONE |
+| 3 | Automated Scheduling System | ✅ DONE |
+| 4 | Repo Cleanup & Trust Restoration | ✅ DONE |
+| 5 | Market Expansion — config + two-source strategy | ✅ DONE (config/markets.py updated; registry, toggles, symbol rules in place) |
+| 6 | Current Markets Testing (NSE, ASX, SGX) | ✅ DONE (pipeline validated 2026-04-22; 408/612 NSE tickers via IBKR) |
+| 7 | Telegram Alert Enhancements | ✅ DONE (signal strength, batching, retry, exchange-aware currency) |
+| 8 | Database Optimization | ✅ DONE (get_recent_low_date() added; indexes verified; bug fixed) |
+| 9 | Phase 1 Criteria Enhancements | ✅ DONE (RVOL cap + avg_volume_20d + days_since_low all wired) |
+| 10 | New Exchange Ticker Universe & Screener Wiring | ✅ DONE (SEHK/LSE/JSE/TADAWUL seeded from static lists; 615k OHLCV rows backfilled; end-to-end verified 2026-04-22) |
 
----
+**Phase 1 complete.** Phase 2 priorities (Fundamental Integration, Advanced Criteria) are deferred per schedule below.
 
-## 🏗️ ARCHITECTURE COMPONENTS
-
-### Core System Architecture ✅ STABLE
-- **Entry Point**: `main.py` - Orchestrates daily scans, scheduling, and alerting
-- **Configuration**: `config/` - Centralized settings for markets, criteria, and providers
-- **Data Providers**: `data/providers.py` - IBKR and YFinance integration with fallback logic
-- **Universe Building**: `screener/universe.py` - Stock universe generation with PostgreSQL caching
-- **Screening Engine**: `screener/core.py` - Multi-provider screening orchestration
-- **Screening Logic**: `screening/screening_utils.py` - Centralized filtering and technical analysis
-- **Storage**: `storage/` - CSV logging and database management
-- **Alerts**: `alerts/telegram.py` - Notification system
-
-### Script Taxonomy
-
-| Path | Role | Status |
-|------|------|--------|
-| `main.py` | Primary daily orchestration entrypoint | Canonical |
-| `main/main_automated.py` | Scheduler-driven live runner (called by `scheduler/market_scheduler.py`) | Canonical |
-| `main/main-paper.py` | Paper-trading entrypoint (IBKR paper mode) | Canonical |
-| `scheduler/market_scheduler.py` | Intelligent market timing and scheduling | Canonical |
-| `scripts/etl/ibkr/collect_daily_ibkr_market_data.py` | Daily IBKR market data collection | Canonical ETL |
-| `scripts/etl/ibkr/flatten_ibkr_market_data.py` | Flattens IBKR snapshots → `current_market_data` | Canonical ETL |
-| `scripts/etl/ibkr/flatten_ibkr_final.py` | Flattens IBKR XML ratios → `stock_fundamentals` | Canonical ETL |
-| `scripts/etl/yfinance/collect_historical_yfinance.py` | Bulk YFinance OHLCV download → `prices_daily` | Canonical ETL |
-| `scripts/etl/finance_db/flatten_fd_nse.py` | FinanceDatabase → `stock_fundamentals_fd` | Canonical ETL |
-| `scripts/analysis/` | Inspection and audit helpers | Ops |
-| `scripts/testing/` | Diagnostic and audit scripts | Ops |
-| `scripts/utils/` | Operational utilities (port check, schema reset, etc.) | Ops |
-| `scripts/ops/` | Operational helpers not part of daily pipeline | Ops |
-| `scripts/legacy/` | Superseded scripts — do not import from production | Archive |
-| `docs/archive/` | Retired planning docs and completed one-time checklists | Archive |
-
-### Data Sources & Access
-- **Primary**: IBKR API (Type 3 Delayed Data) - US, Canada, India, Germany, France, Australia, Singapore, UK, Japan, Hong Kong
-- **Fallback**: YFinance API - Thailand, Indonesia, and IBKR failures
-- **Caching**: PostgreSQL for ticker lists, Redis for market data (planned)
+*Last Updated: 2026-04-22*
 
 ---
 
-## 📋 COMPREHENSIVE TASK ROADMAP
+## Architecture
 
-### ✅ COMPLETED TASKS (2/9)
+### Core Components (stable)
 
-#### 1. Enhanced Scanning Logic ✅ DONE
-**Objective**: Improve signal quality with technical indicators and pattern recognition
-**Deliverables**:
-- RSI filtering (20-45 range for momentum confirmation)
-- Moving average support (price vs SMA50, trend context)
-- ATR volatility filtering (1.5-8% range for risk management)
-- Double bottom pattern detection
-- Volume spike confirmation
-- Breakout detection near lows
-- Pattern recognition integration in screening logic
+| Path | Role |
+|------|------|
+| `main.py` | Primary daily orchestration entrypoint |
+| `main/main_automated.py` | Scheduler-driven runner (called by `scheduler/market_scheduler.py`) |
+| `main/main-paper.py` | Paper-trading entrypoint (IBKR paper mode) |
+| `scheduler/market_scheduler.py` | Intelligent market timing and scheduling |
+| `config/criteria.py` | All screening thresholds (single source of truth) |
+| `config/markets.py` | Market and exchange definitions |
+| `config/settings.py` | Environment-backed runtime settings (IBKR, DB, Telegram) |
+| `data/providers.py` | IBKR + YFinance data providers with fallback logic |
+| `screener/core.py` | Multi-provider screening orchestration |
+| `screening/screening_utils.py` | Centralized filtering and technical analysis |
+| `alerts/telegram.py` | Telegram notification system |
+| `db.py` | Central DB access layer (pool, query, execute, health) |
 
-#### 2. Performance Optimizations ✅ DONE
-**Objective**: Optimize data retrieval and processing speed
-**Deliverables**:
-- `OptimizedYFinanceProvider` class with advanced features
-- Intelligent caching (1-hour TTL, smart cache keys)
-- Parallel processing (5 concurrent requests with semaphore control)
-- Adaptive rate limiting (0.8 req/sec, 25% faster)
+### ETL Scripts
+
+| Path | Role |
+|------|------|
+| `scripts/etl/ibkr/flatten_ibkr_final.py` | Flattens IBKR XML ratios → `stock_fundamentals` |
+| `scripts/etl/ibkr/flatten_ibkr_market_data.py` | Flattens IBKR snapshots → `current_market_data` |
+| `scripts/etl/ibkr/collect_daily_ibkr_market_data.py` | Daily IBKR market data collection |
+| `scripts/etl/ibkr/seed_exchange_tickers.py` | Seeds `tickers` table for SEHK/LSE/JSE/TADAWUL via IBKR MOST_ACTIVE scanner |
+| `scripts/etl/yfinance/collect_historical_yfinance.py` | Bulk YFinance OHLCV → `prices_daily`; `--exchange` flag for per-exchange backfill |
+| `scripts/etl/yfinance/collect_daily_yfinance.py` | Daily incremental OHLCV updates |
+| `scripts/etl/finance_db/flatten_fd_nse.py` | FinanceDatabase → `stock_fundamentals_fd` |
+
+### Data Source Strategy (two-source, IBKR-primary)
+
+**Historical OHLCV:** Always `yf.download()` batch lists via `collect_historical_yfinance.py` → `prices_daily`. No per-ticker hammering.
+
+**Live(ish) / screening data:** IBKR Type 3 Delayed primary; `yf.download()` as fallback if IBKR fails or market unsupported.
+
+| Exchange | Market | IBKR code | IBKR free? | yfinance suffix | Notes |
+|----------|--------|-----------|------------|-----------------|-------|
+| NSE | India | `NSE` | ✅ Free | `.NS` | Primary market |
+| BSE | India | `BSE` | ✅ Free | `.BO` | |
+| ASX | Australia | `ASX` | ✅ Free | (none) | |
+| SGX | Singapore | `SGX` | ✅ Free | `.SI` | |
+| SEHK | Hong Kong | `SEHK` | ✅ Free | `.HK` | Strip leading zeros: `0005`→`5` |
+| LSE | UK | `LSE` | ✅ Free | `.L` | Add trailing period: `BP`→`BP.` |
+| JSE | South Africa | `JSE` | ✅ Free | `.JO` | |
+| TADAWUL | Saudi Arabia | `TADAWUL` | ✅ Free | `.SR` | Vision 2030 open data mandate |
+| TSEJ | Japan | `TSEJ` | ❌ Paid sub | `.T` | Qualifies, Error 162 on data |
+| SMART/NYSE | US | `SMART` | ❌ Paid sub | (none) | |
+| TSE | Canada | `TSE` | ❌ Paid sub | `.TO` | |
+| IBIS | Germany | `IBIS` | ❌ Paid sub | `.DE` | |
+| SBF | France | `SBF` | ❌ Paid sub | `.PA` | |
+| KSE | Korea | Not in IBKR | — | `.KS` | yfinance-only |
+| TWSE | Taiwan | Not in IBKR | — | `.TW` | yfinance-only |
+| BOVESPA | Brazil | Not in IBKR | — | `.SA` | yfinance-only |
+| Bursa | Malaysia | Not in IBKR | — | `.KL` | yfinance-only |
+| SET | Thailand | Not in IBKR | — | `.BK` | yfinance-only |
+| IDX | Indonesia | Not in IBKR | — | `.JK` | yfinance-only |
+
+---
+
+## Tasks
+
+### ✅ 1. Enhanced Scanning Logic
+Technical indicators and pattern recognition implemented in `screening/screening_utils.py` and `config/criteria.py`.
+- RSI filtering (20–45 range)
+- Moving average support (price ≤ 1.03× SMA50)
+- ATR volatility filtering (1.5–8% range)
+- Double bottom pattern detection, volume spike confirmation, breakout detection
+
+### ✅ 2. Performance Optimizations
+`OptimizedYFinanceProvider` in `data/providers_optimized.py`:
+- Intelligent caching (1-hour TTL)
+- Parallel processing (5 concurrent requests, semaphore-controlled)
+- Adaptive rate limiting (0.8 req/sec)
 - Early filtering to reduce API calls
-- Better error recovery and exception handling
+
+### ✅ 3. Automated Scheduling System
+Implemented. Primary files: `scheduler/market_scheduler.py`, `main/main_automated.py`.
+See `docs/market_scheduling_guide.md` for optimal scan times per timezone.
+
+### ✅ 4. Repo Cleanup & Trust Restoration
+Completed 2026-04-18. Full execution log: `docs/tasks/global_macro_cleanup_progress.md`.
+- 37 junk files deleted
+- Script taxonomy verified and documented
+- Outer repo declared as monorepo shell
+- Stale plans archived to `docs/archive/`
 
 ---
 
-### 🚧 ACTIVE TASKS (0/9 Currently Working)
+### ✅ 5. Market Expansion — IBKR + yfinance Two-Source Strategy
+
+**Research completed 2026-04-22** via live TWS diagnostics. Four additional markets confirmed free via IBKR API; all markets also covered via `yf.download()` bulk as fallback.
+
+**Two-source principle:**
+- **Historical OHLCV** → always `yf.download()` bulk (`collect_historical_yfinance.py` pattern)
+- **Live(ish) / screening** → IBKR Type 3 Delayed primary; `yf.download()` fallback if IBKR fails
+
+**Newly confirmed free via IBKR (2026-04-22 diagnostic):**
+- SEHK (Hong Kong) — symbol format: strip leading zeros (`0005` → `5`)
+- LSE (UK) — symbol format: add trailing period (`BP` → `BP.`)
+- JSE (South Africa) — standard symbols
+- TADAWUL (Saudi Arabia) — numeric codes (e.g., `2222` for Aramco); Vision 2030 open data mandate
+
+**Deliverables:**
+
+1. **`config/markets.py`** — add SEHK, LSE, JSE, TADAWUL with IBKR exchange codes; document symbol format rules per exchange; add Korea/Taiwan/Brazil/Malaysia/Thailand/Indonesia as yfinance-only markets
+
+2. **`data/providers.py`** — extend IBKR provider to handle new exchanges; add symbol format normalisation (HK zero-strip, UK trailing period); yfinance fallback already exists, confirm it picks up new markets
+
+3. **`scripts/etl/yfinance/collect_historical_yfinance.py`** — extend ticker lists to include SEHK (`.HK`), LSE (`.L`), JSE (`.JO`), TADAWUL (`.SR`), plus yfinance-only markets (`.KS`, `.TW`, `.SA`, `.KL`, `.T`)
+
+4. **`scripts/testing/test_ibkr_market_access_final.py`** — update market list with correct symbol formats and findings; fix Japan from wrong `TSE` → `TSEJ`; add SEHK/LSE/JSE/TADAWUL as confirmed-free; mark Korea/Taiwan/Brazil/Malaysia as yfinance-only
+
+**Verify:** Run updated test: `PYTHONPATH="." python scripts/testing/test_ibkr_market_access_final.py`
 
 ---
 
-### 📅 QUEUED TASKS (7/9 Remaining)
+### ✅ 6. Current Markets Testing (NSE, ASX, SGX)
 
-#### 3. IBKR Market Data Permissions ⏳ PENDING
-**Objective**: Enable delayed data access for major markets
-**Status**: IBKR support ticket submitted, waiting for permissions
-**Markets Awaiting**: US, Canada, Germany, France
-**Impact**: Will significantly expand scanning coverage
-**Timeline**: Business hours next week
-
-#### 4. Current Markets Testing ⏳ QUEUED
-**Objective**: Validate enhanced scanning with working markets
-**Markets**: India, Australia, Singapore (currently accessible)
-**Deliverables**:
-- Full scan testing with new technical filters
-- Performance benchmarking
-- Signal quality assessment
-- Pattern recognition validation
-
-#### 5. Automated Scheduling System ⏳ QUEUED
-**Objective**: Implement intelligent market timing for scans
-**Requirements**:
-- Market hours analysis (timezones: EST, IST, JST, etc.)
-- Optimal scan timing to catch fresh data
-- Windows Task Scheduler integration
-- Rate limiting distribution across timezones
-- Market calendar awareness (holidays, early closures)
-
-#### 6. Telegram Alert System ⏳ QUEUED
-**Objective**: Enhance notification quality and reliability
-**Deliverables**:
-- Alert formatting for mobile readability
-- Signal strength indicators (weak/strong/extreme)
-- Multi-market alert batching
-- Alert filtering options
-- Test alert validation
-- Error handling for notification failures
-
-#### 7. Database Optimization ⏳ QUEUED
-**Objective**: Improve data storage and retrieval performance
-**Deliverables**:
-- PostgreSQL query optimization
-- Index strategy for ticker caching
-- Connection pooling
-- Data cleanup routines
-- Backup and recovery procedures
-- Performance monitoring
+Completed 2026-04-22. Pipeline validated end-to-end:
+- IBKR collected 408/612 NSE tickers (204 are stale/merged tickers — known, harmless)
+- `avg_volume_20d` and `days_since_low` guard conditions confirmed working on IBKR path
+- 0 opportunities found — expected (bull market, no NSE stocks near 52w lows)
 
 ---
 
-### 🔮 FUTURE ENHANCEMENTS (Phase 2)
+### ✅ 7. Telegram Alert Enhancements
 
-#### 8. Fundamental Integration 🔮 BACK BURNER
-**Objective**: Add company health analysis (Phase 2 - Post-MVP)
-**Status**: Deferred until core scanning system is stable and profitable
-**Requirements**:
-- Earnings quality metrics
-- Revenue growth trends
-- Institutional ownership data
-- Debt-to-equity ratios
-- Current ratio analysis
-- Integration with financial data APIs
-**Timeline**: Q2 2025 (3-6 months from now)
-
-#### 9. Advanced Criteria System 🔮 BACK BURNER
-**Objective**: Implement sophisticated filtering (Phase 2 - Post-MVP)
-**Status**: Deferred until basic system proves profitable
-**Requirements**:
-- Time-based filters (opportunity freshness)
-- Sector rotation analysis
-- Correlation-based filtering
-- Market regime detection
-- Volatility clustering analysis
-**Timeline**: Q3 2025 (6-9 months from now)
+Completed 2026-04-22. Changes in `alerts/telegram.py`:
+- Signal strength: 🔥 EXTREME (RSI ≤ 25 + RVOL ≥ 5×), ⚡ STRONG (RSI ≤ 35 or RVOL ≥ 3×), 📌 WATCH
+- Exchange-aware currency symbols (₹ NSE/BSE, S$ SGX, A$ ASX, £ LSE, etc.)
+- Single batched message grouped by exchange — no per-stock spam
+- Retry with exponential backoff (3 attempts, handles 429 rate limit)
+- `send_alert(catch)` kept for backward compatibility
 
 ---
 
-## 📈 SCREENING CRITERIA ROADMAP
+### ✅ 8. Database Optimization
 
-### Current Active Criteria ✅ IMPLEMENTED
-See `config/criteria.py` for complete specification:
-
-**Core Filters:**
-- Price proximity to 52-week low (≤1.01x)
-- Volume confirmation (≥100k OR RVOL ≥2.0x)
-- Market cap thresholds (exchange-specific)
-- Price range limits ($1-1000)
-
-**Enhanced Technical Filters ✅ NEW:**
-- RSI momentum (20-45 range)
-- Moving average support (price ≤1.03x SMA50)
-- Volatility suitability (ATR 1.5-8%)
-- Pattern recognition (double bottoms, breakouts)
-
-### Planned Criteria Enhancements
-
-**Phase 1 (Current Sprint):**
-- Volume consistency (20-day average)
-- RVOL anomaly capping (≤20x)
-- Days since low filtering (1-30 days)
-
-**Phase 2 (Future):**
-- Fundamental health metrics
-- Sector rotation factors
-- Time-based opportunity windows
-- Correlation analysis
+Completed 2026-04-22. Changes in `db.py`:
+- `get_recent_low_date(ticker, lookback_days=365)` added — queries `prices_daily` using existing composite PK index `(ticker, price_date)`
+- Fixed bug: method originally used non-existent column `trade_date` and dict access on a tuple — corrected to `price_date` and `result[0]`
+- Composite PK `(ticker, price_date)` confirmed present — no new indexes needed
+- Pool size (5) confirmed appropriate for sequential subprocess pipeline
 
 ---
 
-## 🧪 TESTING & VALIDATION STRATEGY
+### ✅ 10. New Exchange Ticker Universe & Screener Wiring
 
-### Unit Testing Framework
-- Individual component testing
-- Provider reliability testing
-- Criteria validation testing
-- Pattern recognition accuracy
+**Completed 2026-04-22.** SEHK/LSE/JSE/TADAWUL activated via curated static universe lists. IBKR scanner turned out to require a paid subscription (even for exchanges whose market data is free), so universe seeding uses major-index constituents instead.
 
-### Integration Testing
-- End-to-end scan testing
-- Multi-market coverage testing
-- Fallback mechanism validation
-- Performance benchmarking
+**Final state:** 264 tickers seeded (SEHK 72, LSE 95, JSE 47, TADAWUL 50); 615k rows backfilled into `prices_daily`; all four exchanges pass end-to-end smoke tests via `main.py --exchanges X --mode test`.
 
-### Production Validation
-- Signal quality assessment
-- False positive reduction metrics
-- Alert accuracy measurement
-- Performance optimization validation
+#### What was implemented (2026-04-22)
 
----
+**Ticker format translation layer** (`config/markets.py`) — single source of truth for all IBKR↔yfinance symbol conversions:
+- `ibkr_to_yfinance(ibkr_symbol, exchange)` — converts IBKR scanner output to yfinance format (LSE trailing-period strip, suffix append, etc.)
+- `exchange_from_yf_ticker(yf_ticker)` — reverse-lookup exchange from yfinance ticker; derived from `MARKET_REGISTRY` so it stays in sync as exchanges are added
+- `normalise_ibkr_symbol(symbol, exchange)` — existing function (yfinance base → IBKR); now documented as the counterpart direction
+- All per-exchange edge cases live here only — no duplicate format logic in callers
 
-## 📊 SUCCESS METRICS
+**`data/providers.py`**:
+- `IBKRScannerProvider.get_scanner_results()` now takes `exchange` (MARKET_REGISTRY key) instead of raw `yf_suffix`; delegates to `ibkr_to_yfinance()` internally
+- `IBKRProvider._get_exchange_from_symbol()` is now a one-liner calling `exchange_from_yf_ticker()`
 
-### Quality Metrics
-- **Signal Accuracy**: ≥70% of alerts should be actionable trades
-- **False Positive Rate**: ≤30% of filtered stocks
-- **Coverage**: ≥80% of target markets accessible
-- **Response Time**: <30 seconds for full universe scan
+**`screener/core.py`**:
+- ALL_SCANS expanded with SEHK, LSE, JSE, TADAWUL entries
+- 5-tuple format updated: `(instrument, location, scan_code, market_key, ibkr_exchange)` where `ibkr_exchange` is a MARKET_REGISTRY key
 
-### Performance Metrics
-- **Scan Speed**: <5 minutes for 5000 stocks
-- **API Efficiency**: <50% redundant API calls (via caching)
-- **Error Rate**: <5% scan failures
-- **Uptime**: 95% successful daily scans
+**`screener/universe.py`**:
+- SEHK, LSE, JSE, TADAWUL added to the exchange mapping with `fd_key=None` (no FinanceDatabase seeding)
+- Prints guidance message when `tickers` table is empty for these exchanges
 
----
+**`scripts/etl/ibkr/seed_exchange_tickers.py`** (new):
+- Connects to IBKR MOST_ACTIVE scanner for SEHK/LSE/JSE/TADAWUL
+- Uses `ibkr_to_yfinance()` for all symbol translation
+- Writes to `tickers` table via `db.save_tickers()`
+- Supports `--exchanges` and `--dry-run` flags
 
-## 🚀 DEPLOYMENT & OPERATIONS
+**`scripts/etl/yfinance/collect_historical_yfinance.py`**:
+- `--exchange` flag added; reads from `tickers` table for the given exchange and bulk-downloads OHLCV
 
-### Environment Setup
-- Production server configuration
-- API key management
-- Database setup and migration
-- Monitoring and alerting
+#### Why static lists instead of IBKR scanner (discovered 2026-04-22)
 
-### Operational Procedures
-- Daily scan automation
-- Error handling and recovery
-- Performance monitoring
-- Log analysis and reporting
+Live dry-run returned "Market Scanner is not configured for one of the chosen locations" (Error 162) for all four exchanges. `reqScannerParameters()` XML revealed:
+- `STK.EU.LSE` and `STK.ME.TADAWUL` are tagged `access=restricted` (require specific subscription IDs).
+- `STK.HK.SEHK` is unrestricted but still returns 0 results on a free delayed feed.
+- JSE (South Africa) has no scanner location at all — absent from every location tree.
 
-### Maintenance Schedule
-- Weekly performance reviews
-- Monthly feature updates
-- Quarterly architecture reviews
-- Annual security audits
+"IBKR market data is free" ≠ "IBKR scanner works for free." Scanner is a separately-licensed product.
 
----
+**Resolution:** curated static lists per exchange (`scripts/etl/ibkr/universe_lists/{sehk,lse,jse,tadawul}.json`) sourcing from major-index constituents (HSI, FTSE 100, JSE Top 40, TASI large-caps). `seed_exchange_tickers.py --source static` is the default. The `--source ibkr` scanner path is preserved for if a scanner subscription is added.
 
-## 📚 DOCUMENTATION HIERARCHY
+#### Operator guide — refresh the universe
 
-### 📋 Master Development Plan (This Document)
-**Purpose**: Strategic roadmap and task management
-**Scope**: Complete project lifecycle from MVP to advanced features
-**Audience**: Project managers, stakeholders, and lead developers
-**Updates**: Major milestones, architectural decisions, timeline changes
+Edit the JSON files in `scripts/etl/ibkr/universe_lists/` every 6–12 months as indices rebalance, then:
 
-### 📖 Technical Implementation Guides
-**Relationship**: Subset of Master Plan - detailed implementation for specific components
+```bash
+# Reseed from the updated JSONs (idempotent; upserts on conflict)
+PYTHONPATH="." .venv/Scripts/python.exe scripts/etl/ibkr/seed_exchange_tickers.py
 
-- **`docs/criteria_improvements.md`** - Screening criteria system (✅ ACTIVE)
-  - Detailed implementation of filtering logic
-  - Technical indicator specifications
-  - Testing procedures for screening enhancements
-  - **Status**: Tracks Task #1 (Enhanced Scanning Logic) implementation
+# Backfill any new tickers (existing bars are unaffected — ON CONFLICT DO UPDATE)
+PYTHONPATH="." .venv/Scripts/python.exe scripts/etl/yfinance/collect_historical_yfinance.py --exchange SEHK,LSE,JSE,TADAWUL
+```
 
-- **`docs/market_scheduling_guide.md`** - Automated scheduling system (📅 QUEUED)
-  - Market timing algorithms
-  - Timezone handling
-  - Rate limiting distribution
-  - **Status**: Will track Task #5 implementation
+#### IDX / SET — already populated
 
-### 🛠️ Operational Documentation
-- Setup and deployment guides
-- API integration documentation
-- Troubleshooting procedures
-- Performance optimization guides
+DB check on 2026-04-22 showed IDX has 718 rows and SET has 1,312 rows in the `tickers` table (yfinance-only ETL pulled them in at some point). No action needed unless they go stale.
+
+#### Deferred exchanges
+BOVESPA, KSE, TWSE, BURSA remain `False` in `MARKETS` until ticker universe work is done for them.
+
+#### Future todo — FinanceDatabase re-integration
+FinanceDatabase currently returns HTTP 404 (remote GitHub data URL broken). When it recovers, replace scanner-seeded lists with a fundamentals-quality universe (same standard as 398 NSE tickers):
+1. Run `scripts/utils/orchestrate_ibkr_pipeline.py` for each new exchange
+2. Filter `stock_fundamentals_fd` by market cap threshold (~$1B+)
+3. Collect IBKR fundamentals via `collect_ibkr_fundamentals.py`
+4. Flatten via `flatten_ibkr_final.py` → `stock_fundamentals`
 
 ---
 
-## 🎯 NEXT IMMEDIATE STEPS
+### ✅ 9. Phase 1 Criteria Enhancements
 
-1. **Wait for IBKR Permissions** - Complete market access
-2. **Test Current Markets** - Validate enhanced scanning
-3. **Implement Scheduling** - Automate optimal timing
-4. **Enhance Alerts** - Improve notification quality
+All three filters implemented and verified (2026-04-22):
 
-**Total Timeline Estimate**: 2-3 weeks for core functionality, ongoing for enhancements.
+| Filter | Config key | Value | Status |
+|--------|-----------|-------|--------|
+| RVOL anomaly cap | `max_rvol` | 20.0 | ✅ Done (`screening_utils.py:93-95`) |
+| 20-day avg volume floor | `min_avg_volume_20d` | 50000 | ✅ Done (`providers.py` + `screening_utils.py`) |
+| Days-since-low window | `min/max_days_since_low` | 1–30 days | ✅ Done (`providers.py` + `screening_utils.py`) |
+
+- `data/providers.py` — populates `avg_volume_20d` and `days_since_low` in `symbol_data` from `hist` DataFrame
+- `screening/screening_utils.py` — two filter blocks after RVOL cap; guard conditions pass IBKR-path stocks through unchanged
+- `db.py` — `get_recent_low_date(ticker, lookback_days)` method for offline screener path
+
+**Verified:** `PYTHONPATH="." python scripts/testing/test_offline_screener.py` — 398 NSE stocks processed, no crashes
 
 ---
 
-*Last Updated: January 9, 2025*
-*Progress: 2/9 Tasks Completed (22% Complete)*
-*Next: IBKR permissions (external) → Current markets testing*
+## Phase 2 (Deferred)
+
+### 🔮 Fundamental Integration (Q3 2026)
+Earnings quality, revenue growth, debt-to-equity, institutional ownership. Deferred until core scanning is stable and profitable.
+
+### 🔮 Advanced Criteria System (Q4 2026)
+Sector rotation, correlation filtering, market regime detection, time-based opportunity windows. Deferred until Phase 1 proves out.
+
+---
+
+## Screening Criteria Reference
+
+See `config/criteria.py` for all thresholds. Current active criteria:
+
+**Core filters:** Price ≤ 1.01× 52-week low, volume ≥ 100k or RVOL ≥ 2.0×, market cap thresholds, price $1–$1000
+
+**Technical filters (implemented):** RSI 20–45, price ≤ 1.03× SMA50, ATR 1.5–8%, RVOL ≤ 20×
+
+**Technical filters (implemented):** avg_volume_20d ≥ 50k, days_since_low 1–30 days
+
+---
+
+## Testing & Verification
+
+```bash
+# Offline screener (no external calls, uses DB data)
+PYTHONPATH="." python scripts/testing/test_offline_screener.py
+
+# DB health
+python db.py health
+python db.py validate
+
+# Full test scan (NSE)
+python main.py --exchanges NSE --mode test
+
+# Integration tests
+python -m pytest tests/integration_tests/ -v
+```
+
+---
+
+## Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| Signal accuracy | ≥ 70% of alerts are actionable |
+| False positive rate | ≤ 30% of filtered stocks |
+| Market coverage | ≥ 80% of target markets accessible |
+| Scan speed | < 5 min for 5000 stocks |
+| API efficiency | < 50% redundant calls (via caching) |
+| Daily uptime | ≥ 95% successful scans |

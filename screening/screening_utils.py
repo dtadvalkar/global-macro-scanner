@@ -94,6 +94,21 @@ def should_pass_screening(symbol_data, criteria=None):
     if 'max_rvol' in criteria and rvol > criteria['max_rvol']:
         return None
 
+    # 20-day average volume floor — pass through if field absent (IBKR path)
+    if 'min_avg_volume_20d' in criteria:
+        avg_vol_20d = symbol_data.get('avg_volume_20d', 0)
+        if avg_vol_20d > 0 and avg_vol_20d < criteria['min_avg_volume_20d']:
+            return None
+
+    # Days-since-low freshness window — pass through if field absent (IBKR path)
+    if 'min_days_since_low' in criteria or 'max_days_since_low' in criteria:
+        days_since_low = symbol_data.get('days_since_low')
+        if days_since_low is not None:
+            if days_since_low < criteria.get('min_days_since_low', 1):
+                return None
+            if days_since_low > criteria.get('max_days_since_low', 30):
+                return None
+
     # ============================================
     # 5. RISK MANAGEMENT FILTERS
     # ============================================

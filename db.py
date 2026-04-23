@@ -419,6 +419,7 @@ class Database:
                     "ON CONFLICT (ticker) DO UPDATE SET last_updated = EXCLUDED.last_updated, market = EXCLUDED.market",
                     data
                 )
+            conn.commit()
 
     def update_ticker_status(self, ticker, status, message=None):
         """Updates the status of a ticker (e.g., 'INACTIVE', 'ACTIVE')"""
@@ -529,6 +530,17 @@ class Database:
         """Get timestamp of latest fundamentals update."""
         result = self.query("SELECT MAX(last_fundamental_update) FROM stock_fundamentals", fetch='one')
         return result[0] if result and result[0] else None
+
+    def get_recent_low_date(self, ticker: str, lookback_days: int = 365) -> Optional[datetime]:
+        """Return the date of the lowest low for ticker over the past lookback_days."""
+        result = self.query(
+            """SELECT price_date FROM prices_daily
+               WHERE ticker = %s AND price_date >= CURRENT_DATE - %s::interval
+               ORDER BY low ASC LIMIT 1""",
+            (ticker, f'{lookback_days} days'),
+            fetch='one'
+        )
+        return result[0] if result else None
 
     def truncate_table(self, table: str):
         """Truncate (empty) a table."""

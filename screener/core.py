@@ -18,28 +18,37 @@ def screen_universe(universe, criteria, markets=None):
         scanner = IBKRScannerProvider(IBKR_CONFIG['host'], IBKR_CONFIG['port'], IBKR_CONFIG['client_id'])
         
         # 🧪 Expansion Hub: Just add new countries here!
-        # Format: (Instrument, LocationCode, ScanCode, MarketKey)
-        # Added MarketKey to filter scans based on enabled config
+        # Format: (Instrument, LocationCode, ScanCode, MarketKey, IBKRExchange)
+        # IBKRExchange must match a MARKET_REGISTRY key in config/markets.py so that
+        # ibkr_to_yfinance() applies the correct per-exchange symbol transformation.
+        # Location codes are IBKR TWS Scanner API codes — if a scan returns 0 results
+        # verify the location code against live TWS scanner parameters.
+        # Location codes verified via reqScannerParameters() on 2026-04-22.
+        # LSE / TADAWUL are access-restricted in IBKR's scanner XML — if they
+        # return 0 results at runtime, that's a market-data subscription gap.
+        # JSE has no scanner location code at all (South Africa absent from the
+        # scanner location tree) — seed JSE universe from a static curated list.
         ALL_SCANS = [
-            # ('STK', 'STK.US.MAJOR', 'MOST_ACTIVE', 'smart'),       # US Major (Needs 'smart' key in markets.py)
-            ('STOCK.NA', 'STK.NA', 'MOST_ACTIVE', 'tsx'),          # Canada (TSE/Venture)
-            # ('STOCK.HK', 'STK.HK.NSE', 'MOST_ACTIVE', 'nse'),    # India (NSE) - Keep disabled until verified
+            ('STK',      'STK.HK.SEHK',    'MOST_ACTIVE', 'sehk',    'SEHK'),     # Hong Kong [IBKR free]
+            ('STK',      'STK.EU.LSE',     'MOST_ACTIVE', 'lse',     'LSE'),      # UK LSE    [IBKR restricted]
+            ('STK',      'STK.ME.TADAWUL', 'MOST_ACTIVE', 'tadawul', 'TADAWUL'),  # Saudi     [IBKR restricted]
+            ('STOCK.NA', 'STK.NA',    'MOST_ACTIVE', 'tsx',     'TSE'),      # Canada    [IBKR paid]
+            # ('STK',    'STK.US.MAJOR','MOST_ACTIVE','smart',  'SMART'),    # US        [IBKR paid]
+            # ('STOCK.HK','STK.HK.NSE','MOST_ACTIVE','nse',    'NSE'),       # India NSE — verify location code first
         ]
-        
+
         # Filter scans based on enabled markets
         option_b_scans = []
-        for inst, loc, scan, m_key in ALL_SCANS:
+        for inst, loc, scan, m_key, ibkr_exchange in ALL_SCANS:
             if markets.get(m_key, False):
-                option_b_scans.append((inst, loc, scan))
-            else:
-                pass # Market disabled
-        
+                option_b_scans.append((inst, loc, scan, ibkr_exchange))
+
         hot_tickers = []
         if option_b_scans:
-            for inst, loc, scan in option_b_scans:
+            for inst, loc, scan, ibkr_exchange in option_b_scans:
                 try:
                     print(f"Requesting scan: {loc} | {scan}...")
-                    found = scanner.get_scanner_results(inst, loc, scan)
+                    found = scanner.get_scanner_results(inst, loc, scan, ibkr_exchange)
                     if found:
                         print(f"  Found {len(found)} candidates from {loc} Scanner.")
                         hot_tickers.extend(found)

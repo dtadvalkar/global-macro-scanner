@@ -1,0 +1,19 @@
+{
+  "exchange": "JSE",
+  "index_name": "JSE Top 40 (FTSE/JSE Top 40 Index) constituents",
+  "source_date": "2026-04-22",
+  "refresh_note": "JSE Top 40 reviewed quarterly. Refresh from https://www.jse.co.za/ or FTSE/JSE indices every 6–12 months.",
+  "ticker_format": "yfinance (JSE symbol + .JO, e.g. NPN.JO)",
+  "tickers": [
+    "ABG.JO", "AGL.JO", "AMS.JO", "ANG.JO", "APN.JO",
+    "ARI.JO", "AVI.JO", "BHG.JO", "BID.JO", "BTI.JO",
+    "BVT.JO", "CFR.JO", "CLS.JO", "CPI.JO", "DSY.JO",
+    "EXX.JO", "FSR.JO", "GFI.JO", "GLN.JO", "GRT.JO",
+    "HAR.JO", "IMP.JO", "INL.JO", "INP.JO", "MCG.JO",
+    "MNP.JO", "MRP.JO", "MTN.JO", "NED.JO", "NPH.JO",
+    "NPN.JO", "NRP.JO", "OMU.JO", "PIK.JO", "PPH.JO",
+    "PRX.JO", "REM.JO", "RMI.JO", "SBK.JO", "SHP.JO",
+    "SLM.JO", "SOL.JO", "SPP.JO", "TBS.JO", "TFG.JO",
+    "VOD.JO", "WHL.JO"
+  ]
+}
