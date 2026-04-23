@@ -4,7 +4,7 @@
 Global Market Scanner is a stock screening system that identifies high-potential trading opportunities near 52-week lows across global markets, combining IBKR (NSE and accessible markets) and YFinance (bulk OHLCV history and fallback markets) data sources.
 
 ## Current Status
-**Progress: 10 of 10 Phase 1 tasks complete**
+**Progress: 10 of 10 Phase 1 tasks complete. Tasks 11 and 12 queued to upgrade new-exchange universes to NSE-grade — see end of Task 10 section.**
 
 | # | Task | Status |
 |---|------|--------|
@@ -234,6 +234,37 @@ PYTHONPATH="." .venv/Scripts/python.exe scripts/etl/yfinance/collect_historical_
 #### IDX / SET — already populated
 
 DB check on 2026-04-22 showed IDX has 718 rows and SET has 1,312 rows in the `tickers` table (yfinance-only ETL pulled them in at some point). No action needed unless they go stale.
+
+#### Follow-up: upgrade new-exchange universes to NSE-grade (Task 11 / Task 12)
+
+The Task 10 static index lists (SEHK 72 / LSE 95 / JSE 47 / TADAWUL 50) are a **bootstrap**, not the long-term universe. They filter by *index membership* (HSI / FTSE 100 / JSE Top 40 / TASI large-caps) — which is a different and much narrower criterion than the one behind the 398 NSE tickers in `stock_fundamentals`.
+
+**The canonical universe criterion (reverse-engineered from the NSE pipeline 2026-04-22):**
+
+> FinanceDatabase equities for the target exchange where `market_cap_category IN ('Large Cap', 'Mid Cap', 'Small Cap')` — **excluding** Nano Cap, Micro Cap, and None.
+
+For NSE this yielded ~612 candidates, of which 398 ultimately had IBKR fundamentals XML returned. Large+Mid+Small gives meaningful mid/small-cap coverage where 52-week-low setups are most interesting, while dropping Nano/Micro avoids unscreenable illiquid names.
+
+##### ⏳ Task 11 — IBKR fundamentals pipeline for the 4 new exchanges (Option 2)
+
+Run the existing NSE-style pipeline for SEHK/LSE/JSE/TADAWUL so `stock_fundamentals` covers all 5 markets with the same 81-column schema. Unlocks PE/ROE/margin/etc. filters on the new exchanges.
+
+1. For each target exchange, seed `stock_fundamentals_fd` via FinanceDatabase (requires FD's remote to be back from HTTP 404; see Task 12 below).
+2. Filter FD rows by `market_cap_category IN ('Large Cap','Mid Cap','Small Cap')`.
+3. Run `scripts/etl/ibkr/collect_ibkr_fundamentals.py` on the filtered list → `raw_ibkr_*` tables.
+4. Flatten via `scripts/etl/ibkr/flatten_ibkr_final.py` → `stock_fundamentals`.
+
+Risk: IBKR may refuse fundamentals for non-NSE exchanges on the free feed (same class of subscription wall we hit with the scanner). If it does, fall back to Task 12 / keep the static bootstrap.
+
+##### ⏳ Task 12 — Replace bootstrap lists with FinanceDatabase seed (Option 3)
+
+Prerequisite: FinanceDatabase's upstream GitHub data URL recovers from its current HTTP 404.
+
+1. In `screener/universe.py`, flip `fd_key=None` on SEHK/LSE/JSE/TADAWUL to the correct FD exchange code (`HKG`, `LON`, `JNB`, `TDW` — verify against `fd.Equities()` docs).
+2. Re-run universe refresh; FD should return ~1000s of tickers per exchange.
+3. Apply the same Large+Mid+Small filter to match the 398 NSE criterion.
+4. Re-run `collect_historical_yfinance.py --exchange SEHK,LSE,JSE,TADAWUL` to backfill OHLCV for the broader set.
+5. At that point the four static JSONs in `universe_lists/` can be deleted (or kept as an offline fallback).
 
 #### Deferred exchanges
 BOVESPA, KSE, TWSE, BURSA remain `False` in `MARKETS` until ticker universe work is done for them.
