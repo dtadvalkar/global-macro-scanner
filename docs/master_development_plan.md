@@ -258,13 +258,28 @@ Risk: IBKR may refuse fundamentals for non-NSE exchanges on the free feed (same 
 
 ##### ⏳ Task 12 — Replace bootstrap lists with FinanceDatabase seed (Option 3)
 
-Prerequisite: FinanceDatabase's upstream GitHub data URL recovers from its current HTTP 404.
+**Prerequisite met 2026-04-22:** FD upgraded from 2.0.3 → 2.3.1. The old `compression/equities.pkl` (xz) is gone from the repo; 2.3.1 fetches `compression/equities.bz2` and works. `fd.Equities().search(exchange=<code>)` now returns data for all five target exchanges.
 
-1. In `screener/universe.py`, flip `fd_key=None` on SEHK/LSE/JSE/TADAWUL to the correct FD exchange code (`HKG`, `LON`, `JNB`, `TDW` — verify against `fd.Equities()` docs).
-2. Re-run universe refresh; FD should return ~1000s of tickers per exchange.
-3. Apply the same Large+Mid+Small filter to match the 398 NSE criterion.
-4. Re-run `collect_historical_yfinance.py --exchange SEHK,LSE,JSE,TADAWUL` to backfill OHLCV for the broader set.
-5. At that point the four static JSONs in `universe_lists/` can be deleted (or kept as an offline fallback).
+**Verified FD exchange codes + Large+Mid+Small yield (2026-04-22):**
+
+| Our exchange | FD code | Total rows | Large+Mid+Small |
+|---|---|---|---|
+| NSE | `NSE` | 1,933 | 612 (matches existing pipeline) |
+| SEHK | `HKG` | 1,621 | 664 |
+| LSE | `LSE` | 3,365 | 1,326 |
+| JSE | `JNB` | 409 | 81 |
+| TADAWUL | `SAU` | 154 | 103 |
+
+**Caveat — column rename in 2.3.1:** `market_cap_category` → `market_cap`. `stock_fundamentals_fd` still has the old column (frozen data). Any new flatten pass from live FD must read `market_cap`.
+
+**Execution steps:**
+
+1. In `screener/universe.py`, update the SEHK/LSE/JSE/TADAWUL entries to set `fd_key` to `HKG`, `LSE`, `JNB`, `SAU` respectively (replacing `None`).
+2. Add the same suffix mapping entries (`HKG → .HK`, `LSE → .L`, `JNB → .JO`, `SAU → .SR`) in the `suffix = {...}` dict on ~line 47.
+3. Apply the Large+Mid+Small filter in `universe.py` before calling `save_tickers` — currently the code passes all FD rows through. Filter with `selection = selection[selection['market_cap'].isin(['Large Cap','Mid Cap','Small Cap'])]`.
+4. Clear the existing static-bootstrap rows and re-seed: `DELETE FROM tickers WHERE market IN ('SEHK','LSE','JSE','TADAWUL')` then run the scanner to trigger FD refresh.
+5. Re-run `collect_historical_yfinance.py --exchange SEHK,LSE,JSE,TADAWUL` to backfill OHLCV for the broader universe.
+6. `universe_lists/*.json` can be deleted (or kept as offline fallback for airgapped runs).
 
 #### Deferred exchanges
 BOVESPA, KSE, TWSE, BURSA remain `False` in `MARKETS` until ticker universe work is done for them.
