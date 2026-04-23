@@ -54,7 +54,14 @@
       "Bash(curl -sI \"https://raw.githubusercontent.com/JerBouma/FinanceDatabase/main/database/equities.pkl\")",
       "Bash(curl -sI \"https://raw.githubusercontent.com/JerBouma/FinanceDatabase/main/database/equities.bz2\")",
       "Bash(gh api *)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Bash(PYTHONPATH=\".\" PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe scripts/etl/yfinance/collect_historical_yfinance.py --exchange SEHK,LSE,JSE,TADAWUL)",
+      "Bash(tee /tmp/sehk_validation.log)",
+      "Bash(PYTHONPATH=\".\" PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe scripts/testing/test_ibkr_market_access_final.py --exchanges SEHK,LSE,JSE,TADAWUL,ASX,SGX)",
+      "Bash(PYTHONPATH=\".\" PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe scripts/etl/yfinance/collect_historical_yfinance.py --exchange ASX,SGX)",
+      "Bash(tee /tmp/asx_sgx_yf.log)",
+      "Bash(PYTHONPATH=\".\" PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe scripts/etl/yfinance/collect_historical_yfinance.py --exchange SGX)",
+      "Bash(tee /tmp/sgx_yf.log)"
     ]
   }
 }

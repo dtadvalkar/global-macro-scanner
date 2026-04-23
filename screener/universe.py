@@ -11,7 +11,7 @@ db = get_db()
 # tickers (see project_nse_universe_criterion memory). NSE itself is intentionally
 # NOT in this set — its pipeline seeds the full FD list into `tickers` and does
 # fundamentals-collection filtering downstream.
-CAP_FILTERED_EXCHANGES = {'SEHK', 'LSE', 'JSE', 'TADAWUL'}
+CAP_FILTERED_EXCHANGES = {'SEHK', 'LSE', 'JSE', 'TADAWUL', 'ASX', 'SGX'}
 
 # FD 2.3.1 renamed market_cap_category -> market_cap.
 FD_CAP_COLUMN = 'market_cap'
@@ -28,7 +28,7 @@ def get_universe(markets):
         'nse':     ('NSE', 'NSE'),      # India NSE (.NS)
         'tsx':     ('TOR', 'TSE'),      # Canada TSE (.TO)
         'asx':     ('ASX', 'ASX'),      # Australia ASX (.AX)
-        'sgx':     ('SG',  'SGX'),      # Singapore SGX (.SI)  — FD uses 'SG'
+        'sgx':     ('SES', 'SGX'),      # Singapore SGX (.SI)  — FD uses 'SES' (SG is Santiago/Chile)
         'xetra':   ('GER', 'XETRA'),    # Germany XETRA (.DE)
         'sbf':     ('FRA', 'SBF'),      # France Euronext (.PA)
         # New exchanges — FD seed with Large+Mid+Small cap filter (Task 12, 2026-04-22)
