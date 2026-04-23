@@ -32,7 +32,29 @@
       "Bash(PYTHONPATH=\".\" .venv/Scripts/python scripts/testing/test_offline_screener.py)",
       "Bash(git -C \"C:/Dev/Global Market Scanner\" status)",
       "Bash(git -C \"C:/Dev/Global Market Scanner\" log --oneline -3)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(PYTHONPATH=\".\" python scripts/utils/quick_port_check.py)",
+      "Bash(python -c ' *)",
+      "Bash(PYTHONPATH=\".\" IBKR_PORT=7496 python scripts/testing/test_ibkr_market_access_final.py --exchanges SMART,TSE,IBIS,SBF)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python scripts/testing/test_ibkr_market_access_final.py --exchanges SMART,TSE,IBIS,SBF)",
+      "Bash(.venv/Scripts/python db.py health)",
+      "Bash(.venv/Scripts/python db.py validate)",
+      "WebSearch",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python -)",
+      "Bash(2>&1)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python main.py --exchanges NSE --mode test)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python scripts/testing/test_ibkr_market_access_final.py --exchanges ASX,SGX,SEHK,LSE,JSE,TADAWUL)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python scripts/utils/test_telegram.py)",
+      "Bash(PYTHONPATH=\".\" PYTHONIOENCODING=utf-8 .venv/Scripts/python scripts/utils/test_telegram.py)",
+      "Bash(python db.py health)",
+      "Bash(.venv/Scripts/python.exe db.py health)",
+      "Bash(.venv/Scripts/python.exe *)",
+      "Bash(PYTHONPATH=\".\" .venv/Scripts/python.exe *)",
+      "Bash(curl -sI \"https://raw.githubusercontent.com/JerBouma/FinanceDatabase/main/compression/equities.pkl\")",
+      "Bash(curl -sI \"https://raw.githubusercontent.com/JerBouma/FinanceDatabase/main/database/equities.pkl\")",
+      "Bash(curl -sI \"https://raw.githubusercontent.com/JerBouma/FinanceDatabase/main/database/equities.bz2\")",
+      "Bash(gh api *)",
+      "WebFetch(domain:api.github.com)"
     ]
   }
 }
