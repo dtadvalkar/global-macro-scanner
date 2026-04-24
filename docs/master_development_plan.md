@@ -6,6 +6,8 @@ Global Market Scanner is a stock screening system that identifies high-potential
 ## Current Status
 **Progress: 10 of 10 Phase 1 tasks complete. Task 12 DONE 2026-04-22 (FD re-seed activated). Task 11 (IBKR fundamentals for new exchanges) still queued — see end of Task 10 section.**
 
+**2026-04-24** — NSE end-to-end re-validated with `main.py --exchanges NSE --mode test` (exit 0, 395/398 collected, 4/4 steps green). Daily collector was pointing at `stock_fundamentals_fd` (raw FD seed, 1,921 rows) whose contents drifted after Task 12's FD re-seed; corrected to read `stock_fundamentals` (398, IBKR-verified). See `docs/tasks/nse_e2e_progress.md`. Follow-ups: (a) 3 stale symbols in the curated 398 — INFIBEAM (→ CCAVENUE), AKZOINDIA, SEQUENT — need hygiene review; (b) Task 11 (IBKR fundamentals round-trip for ASX/SGX) remains the prerequisite for bringing those exchanges to NSE parity.
+
 | # | Task | Status |
 |---|------|--------|
 | 1 | Enhanced Scanning Logic | ✅ DONE |

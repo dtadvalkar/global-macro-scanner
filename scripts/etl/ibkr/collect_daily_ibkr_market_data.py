@@ -65,8 +65,7 @@ def get_screening_universe_tickers():
         conn = psycopg2.connect(dbname=DB_CONFIG['db_name'], user=DB_CONFIG['db_user'], password=DB_CONFIG['db_pass'], host=DB_CONFIG['db_host'], port=DB_CONFIG['db_port'])
         cur = conn.cursor()
         cur.execute("""
-            SELECT ticker FROM stock_fundamentals_fd
-            WHERE market_cap_category IN ('Large Cap','Mid Cap','Small Cap')
+            SELECT ticker FROM stock_fundamentals
             ORDER BY ticker
         """)
         tickers = [row[0] for row in cur.fetchall()]
