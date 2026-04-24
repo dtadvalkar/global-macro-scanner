@@ -1,6 +1,6 @@
 # 🔧 Troubleshooting Guide
 
-> **Canonical setup reference:** `global-macro-scanner/README.md` — if you hit a setup issue, verify your environment matches what is documented there first.
+> **Canonical setup reference:** `README.md` at the repo root — if you hit a setup issue, verify your environment matches what is documented there first.
 
 ## Overview
 
