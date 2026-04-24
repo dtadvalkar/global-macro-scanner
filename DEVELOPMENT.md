@@ -43,7 +43,9 @@ pip install -r requirements.txt
 cp .env.example .env            # edit DB_NAME, DB_USER, DB_PASSWORD, IBKR_*, TELEGRAM_*
 ```
 
-> **Never** install into a system or outer-root environment. `.venv` at repo root is authoritative.
+> **Never** install into a system environment. `.venv` at repo root is authoritative.
+
+For shared multi-agent workflow and handoff rules, read `AGENTS.md`.
 
 ## Running the pipeline
 

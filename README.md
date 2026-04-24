@@ -25,11 +25,12 @@ python -m venv .venv
 source .venv/bin/activate       # macOS/Linux
 pip install -r requirements.txt
 
-# Set environment variables (create a .env file)
-# DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
-# IBKR_HOST, IBKR_PORT, IBKR_CLIENT_ID (optional)
-# TELEGRAM_TOKEN, CHAT_ID (optional)
+# Create and fill the env file
+copy .env.example .env            # Windows
+cp .env.example .env             # macOS/Linux
 ```
+
+For agent-oriented workflow and handoff rules, read `AGENTS.md`. For current task status, read `docs/master_development_plan.md` and `docs/tasks/`.
 
 ## 📁 Project Structure
 
