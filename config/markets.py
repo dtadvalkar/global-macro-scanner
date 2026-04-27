@@ -67,13 +67,20 @@ def normalise_ibkr_symbol(symbol: str, exchange: str) -> str:
 
     Direction: yfinance → IBKR  (e.g. for contract qualification)
       strip_leading_zeros (SEHK): '0005' → '5'
-      trailing_period     (LSE):  'BP'   → 'BP.'
+      trailing_period     (LSE):  'BP'   → 'BP.', but 'HSBA' → 'HSBA' (unchanged)
+
+    LSE convention (verified against IBKR 2026-04-27): only 2-character common
+    stock codes get a trailing period to disambiguate from longer codes;
+    3+ character codes do NOT take a trailing period in IBKR's catalog.
+    Applying the period blindly fails qualification for the long tail.
     """
     rule = MARKET_REGISTRY.get(exchange, {}).get('symbol_rule')
     if rule == 'strip_leading_zeros':
         return symbol.lstrip('0') or symbol  # SEHK: 0005 → 5
     if rule == 'trailing_period':
-        return symbol if symbol.endswith('.') else symbol + '.'  # LSE: BP → BP.
+        if len(symbol) <= 2 and not symbol.endswith('.'):
+            return symbol + '.'  # LSE: BP → BP.
+        return symbol             # LSE: HSBA → HSBA (no period for 3+ char)
     return symbol
 
 
