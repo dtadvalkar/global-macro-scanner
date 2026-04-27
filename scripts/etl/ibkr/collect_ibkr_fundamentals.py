@@ -198,7 +198,9 @@ async def collect_fundamentals_for_tickers(tickers: list):
     print(f"\n[SUMMARY] Fundamentals Collection Complete:")
     print(f"  ✅ Successful: {successful}")
     print(f"  ❌ Failed: {failed}")
-    print(".1f"
+    total = successful + failed
+    if total > 0:
+        print(f"  📊 Success rate: {successful / total * 100:.1f}%")
 
 def get_all_fd_tickers():
     """Get all tickers from raw_fd_nse table."""
