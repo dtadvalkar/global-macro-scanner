@@ -4,9 +4,11 @@
 Global Market Scanner is a stock screening system that identifies high-potential trading opportunities near 52-week lows across global markets, combining IBKR (NSE and accessible markets) and YFinance (bulk OHLCV history and fallback markets) data sources.
 
 ## Current Status
-**Progress: 10 of 10 Phase 1 tasks complete. Task 12 DONE 2026-04-22 (FD re-seed activated). Task 11 (IBKR fundamentals for new exchanges) still queued — see end of Task 10 section.**
+**Progress: 10 of 10 Phase 1 tasks complete. Tasks 11 + 12 + 12.5 all DONE. `stock_fundamentals` is now multi-exchange (1,844 rows across 7 IBKR-free exchanges).**
 
-**2026-04-24** — NSE end-to-end re-validated with `main.py --exchanges NSE --mode test` (exit 0, 395/398 collected, 4/4 steps green). Daily collector was pointing at `stock_fundamentals_fd` (raw FD seed, 1,921 rows) whose contents drifted after Task 12's FD re-seed; corrected to read `stock_fundamentals` (398, IBKR-verified). See `docs/tasks/nse_e2e_progress.md`. Follow-ups: (a) 3 stale symbols in the curated 398 — INFIBEAM (→ CCAVENUE), AKZOINDIA, SEQUENT — need hygiene review; (b) Task 11 (IBKR fundamentals round-trip for ASX/SGX) remains the prerequisite for bringing those exchanges to NSE parity.
+**2026-04-27** — Task 11 complete. Multi-exchange IBKR fundamentals round-trip executed across NSE / SEHK / ASX / LSE / SGX / TADAWUL / JSE. Final per-exchange counts in `stock_fundamentals`: NSE 408, SEHK 597, ASX 327, LSE 241, SGX 124, TADAWUL 96, JSE 51 = **1,844 total**. NSE end-to-end re-validated post-Task-11 with `main.py --exchanges NSE --mode test` during NSE market hours (exit 0, 388 fresh market data, 0 catches, 4/4 steps green). Notable side-fix: LSE `trailing_period` rule was over-applying — corrected in `config/markets.py` to only fire for ≤2-char symbols (commit 6b56730), lifting LSE collect from 9/1326 to 233/1317. See `docs/tasks/task11_progress.md`.
+
+**2026-04-24** — NSE end-to-end re-validated. Daily collector was pointing at `stock_fundamentals_fd` (raw FD seed); corrected to `stock_fundamentals` (curated). See `docs/tasks/nse_e2e_progress.md`.
 
 | # | Task | Status |
 |---|------|--------|
@@ -247,16 +249,21 @@ The Task 10 static index lists (SEHK 72 / LSE 95 / JSE 47 / TADAWUL 50) are a **
 
 For NSE this yielded ~612 candidates, of which 398 ultimately had IBKR fundamentals XML returned. Large+Mid+Small gives meaningful mid/small-cap coverage where 52-week-low setups are most interesting, while dropping Nano/Micro avoids unscreenable illiquid names.
 
-##### ⏳ Task 11 — IBKR fundamentals pipeline for the 4 new exchanges (Option 2)
+##### ✅ Task 11 — IBKR fundamentals pipeline for the 6 new exchanges + NSE re-seed — DONE 2026-04-27
 
-Run the existing NSE-style pipeline for SEHK/LSE/JSE/TADAWUL so `stock_fundamentals` covers all 5 markets with the same 81-column schema. Unlocks PE/ROE/margin/etc. filters on the new exchanges.
+Ran the full NSE-style pipeline for SEHK / LSE / ASX / SGX / TADAWUL / JSE plus an NSE re-seed (the 2026-01 fundamentals were three months stale). `stock_fundamentals` now covers all 7 IBKR-free exchanges with the same ~80-column mega-schema.
 
-1. For each target exchange, seed `stock_fundamentals_fd` via FinanceDatabase (requires FD's remote to be back from HTTP 404; see Task 12 below).
-2. Filter FD rows by `market_cap_category IN ('Large Cap','Mid Cap','Small Cap')`.
-3. Run `scripts/etl/ibkr/collect_ibkr_fundamentals.py` on the filtered list → `raw_ibkr_*` tables.
-4. Flatten via `scripts/etl/ibkr/flatten_ibkr_final.py` → `stock_fundamentals`.
+**Final per-exchange counts:** NSE 408, SEHK 597, ASX 327, LSE 241, SGX 124, TADAWUL 96, JSE 51 = **1,844 total**.
 
-Risk: IBKR may refuse fundamentals for non-NSE exchanges on the free feed (same class of subscription wall we hit with the scanner). If it does, fall back to Task 12 / keep the static bootstrap.
+Two scripts were generalised (commit `bc0af26`):
+- `collect_ibkr_fundamentals.py` — `--exchange`, `--source tickers|fd_capfilter`, `--max-age-days` resume, `--include-inactive`, `--limit`. NSE/INR hardcodes replaced with MARKET_REGISTRY currency + `normalise_ibkr_symbol()`.
+- `flatten_ibkr_final.py` — recovered the canonical mega-schema flattener from `b55b8de^` (the in-tree stub didn't match the live ~80-column schema), then adapted: source `ibkr_fundamentals` (not legacy `raw_ibkr_nse`), `--exchange` filter by yf suffix, `CREATE IF NOT EXISTS` + per-row UPSERT, `--replace` for per-suffix delete, per-row commit/rollback so one bad XML doesn't poison the batch.
+
+Side-fix on LSE (commit `6b56730`): the blanket `trailing_period` rule was incorrectly appending `.` to all LSE symbols, collapsing the LSE collect to 9/1326. IBKR's LSE catalog only carries the trailing period for the historical 2-char convention (BP, AV, BA, …); 3+ char symbols (HSBA, GSK, AZN, …) are listed without it. Conditional rule lifted LSE collect to 233/1317. The remaining ~1k LSE failures are FD's `0A*` historical security IDs that IBKR doesn't carry — candidate for a regex filter at FD-seed time (`^0[A-Z0-9]+\.L$`).
+
+NSE end-to-end re-validation: `main.py --exchanges NSE --mode test` ran during NSE market hours 2026-04-27 — 388 fresh market data, 923 in current_market_data, 950 actionable NSE tickers screened, 0 catches, exit 0.
+
+See `docs/tasks/task11_progress.md` for the full run report.
 
 ##### ✅ Task 12 — Replace bootstrap lists with FinanceDatabase seed — DONE 2026-04-22
 
