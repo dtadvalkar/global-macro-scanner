@@ -1,28 +1,11 @@
+from db import get_db
 
-from storage.database import DatabaseManager
-
-db = DatabaseManager()
-conn = db._get_connection()
+db = get_db()
 
 print("--- Database Status ---")
-with conn.cursor() as cur:
-    cur.execute("SELECT count(*) FROM tickers WHERE market='NSE'")
-    res = cur.fetchone()
-    nse_tickers = res[0] if res else 0
-    print(f"Tickers (NSE): {nse_tickers}")
+res = db.query("SELECT count(*) FROM tickers WHERE market = %s", ('NSE',), fetch='one')
+print(f"Tickers (NSE): {res[0] if res else 0}")
 
-    # Check stock_fundamentals
-    try:
-        cur.execute("SELECT count(*) FROM stock_fundamentals")
-        res = cur.fetchone()
-        fundamentals = res[0] if res else 0
-        
-        cur.execute("SELECT count(*) FROM stock_fundamentals WHERE is_active = FALSE")
-        res = cur.fetchone()
-        inactive = res[0] if res else 0
-        
-        print(f"Stock Fundamentals: {fundamentals} total rows")
-        print(f"  - Active: {fundamentals - inactive}")
-        print(f"  - Inactive/Ignored: {inactive}")
-    except Exception as e:
-        print(f"Stock Fundamentals: Not found or error ({e})")
+print(f"Stock Fundamentals: {db.get_fundamentals_count()} rows (IBKR-curated)")
+print(f"Prices Daily: {db.get_price_data_count()} rows")
+print(f"Current Market Data: {db.get_current_market_count()} rows")

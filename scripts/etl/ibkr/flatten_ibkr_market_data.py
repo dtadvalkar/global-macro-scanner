@@ -52,24 +52,8 @@ def flatten_ibkr_market_data():
     
     print(f"🕒 Watermark (last processed): {watermark} (Type: {type(watermark)})")
 
-    # 2. Query DELTA from ibkr_market_data
-    # Use COALESCE to handle data in top-level columns or nested in JSON
-    # Nested path observed: market_data -> 'Ticker' -> 'last'
-    rows = db.query("""
-        SELECT
-            ticker,
-            COALESCE(last_price, (market_data->'Ticker'->>'last')::numeric) as price,
-            COALESCE(market_data->>'close', market_data->'Ticker'->>'close')::numeric as close,
-            COALESCE(market_data->>'open', market_data->'Ticker'->>'open')::numeric as open,
-            COALESCE(market_data->>'high', market_data->'Ticker'->>'high')::numeric as high,
-            COALESCE(market_data->>'low', market_data->'Ticker'->>'low')::numeric as low,
-            COALESCE(volume, (market_data->'Ticker'->>'volume')::numeric::bigint) as vol,
-            last_updated
-        FROM ibkr_market_data
-        WHERE market_data IS NOT NULL
-        AND last_updated > %s
-        ORDER BY last_updated ASC
-    """, (watermark,))
+    # 2. Query DELTA from ibkr_market_data (sql/etl/ibkr_market_data_delta.sql)
+    rows = db.query_file('etl/ibkr_market_data_delta.sql', (watermark,))
     
     if not rows:
         # Check if there are any rows in ibkr_market_data at all for debugging
@@ -115,37 +99,17 @@ def flatten_ibkr_market_data():
             print(f"  ❌ Error processing {ticker}: {e}")
             continue
 
-    # 3. Upsert flattened data
+    # 3. Upsert flattened data (sql/etl/current_market_data_upsert.sql)
     if flattened_data:
         print(f"\n💾 Upserting {len(flattened_data)} records into current_market_data...")
 
-        # We use a manual UPSERT loop or a prepared statement to avoid truncating
-        with db.get_connection() as conn:
-            with conn.cursor() as cur:
-                upsert_sql = """
-                    INSERT INTO current_market_data 
-                    (ticker, last_price, close_price, open_price, high_price, low_price, volume, last_updated)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (ticker) 
-                    DO UPDATE SET
-                        last_price = EXCLUDED.last_price,
-                        close_price = EXCLUDED.close_price,
-                        open_price = EXCLUDED.open_price,
-                        high_price = EXCLUDED.high_price,
-                        low_price = EXCLUDED.low_price,
-                        volume = EXCLUDED.volume,
-                        last_updated = EXCLUDED.last_updated
-                    WHERE EXCLUDED.last_updated >= current_market_data.last_updated
-                """
-                batch = [
-                    (d['ticker'], d['last_price'], d['close_price'], d['open_price'], 
-                     d['high_price'], d['low_price'], d['volume'], d['last_updated'])
-                    for d in flattened_data
-                ]
-                cur.executemany(upsert_sql, batch)
-                conn.commit()
-                inserted = cur.rowcount # This might not be accurate for upserts in all PG versions
-        
+        batch = [
+            (d['ticker'], d['last_price'], d['close_price'], d['open_price'],
+             d['high_price'], d['low_price'], d['volume'], d['last_updated'])
+            for d in flattened_data
+        ]
+        db.execute_values_file('etl/current_market_data_upsert.sql', batch)
+
         print(f"✅ Successfully flattened/updated {len(flattened_data)} records")
 
         # Show summary of the state

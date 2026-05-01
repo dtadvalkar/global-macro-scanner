@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
-Test the Fundamental Cache Manager integration
+Test the Fundamental Cache Manager (read-only path).
+
+The cache_manager was pruned during the SQL-externalization cleanup
+(2026-04-30) to only the working methods. Earlier tests of write-side
+APIs (set_fundamentals, get_market_cap_stats, can_skip_by_fundamentals)
+covered methods that AttributeErrored against uninitialized state and
+have been removed.
 """
 
 import sys
@@ -8,66 +14,37 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from data.cache_manager import FundamentalCacheManager
-from config import CRITERIA
+
 
 def test_fundamental_cache():
-    """Test fundamental caching functionality"""
-    print("TESTING FUNDAMENTAL CACHE INTEGRATION")
+    print("TESTING FUNDAMENTAL CACHE (READ-ONLY)")
     print("=" * 50)
 
     cache = FundamentalCacheManager()
 
-    # Test 1: Check early filtering
-    print("\n1. Testing Early Filtering")
-
-    # Test with a small cap stock (should be skipped)
-    small_cap_data = {
-        'symbol': 'SMALL',
-        'exchange': 'SMART',
-        'market_cap_usd': 30000000,  # $30M - below $150M emerging market threshold
-        'sector': 'Technology',
-        'industry': 'Software',
-        'currency': 'USD',
-        'country': 'United States'
-    }
-
-    cache.set_fundamentals('SMALL', small_cap_data)
-    can_skip, reason = cache.can_skip_by_fundamentals('SMALL', CRITERIA)
-    print(f"SMALL stock filtering: {'SKIP' if can_skip else 'PROCESS'} - {reason}")
-
-    # Test with a large cap stock (should pass)
-    large_cap_data = {
-        'symbol': 'AAPL',
-        'exchange': 'SMART',
-        'market_cap_usd': 3000000000000,  # $3T - way above threshold
-        'sector': 'Technology',
-        'industry': 'Consumer Electronics',
-        'currency': 'USD',
-        'country': 'United States'
-    }
-
-    cache.set_fundamentals('AAPL', large_cap_data)
-    can_skip, reason = cache.can_skip_by_fundamentals('AAPL', CRITERIA)
-    print(f"AAPL stock filtering: {'SKIP' if can_skip else 'PROCESS'} - {reason}")
-
-    # Test 2: Check cache retrieval
-    print("\n2. Testing Cache Retrieval")
-    fundamentals = cache.get_fundamentals('AAPL')
+    # 1. Look up a ticker that should exist in the curated stock_fundamentals.
+    fundamentals = cache.get_fundamentals('RELIANCE.NS')
     if fundamentals:
-        print(f"Retrieved AAPL fundamentals: ${fundamentals['market_cap_usd']/1e9:.1f}B market cap")
+        mcap = fundamentals.get('market_cap_usd') or 0
+        print(f"RELIANCE.NS: ${mcap/1e9:.1f}B market cap, exchange={fundamentals.get('exchange')}")
+        assert fundamentals['ticker'] == 'RELIANCE.NS'
+        assert fundamentals['data_source'] == 'ibkr'
     else:
-        print("Failed to retrieve AAPL fundamentals")
+        print("RELIANCE.NS not found (run flatten_ibkr_final.py to populate).")
 
-    # Test 3: Check market cap statistics
-    print("\n3. Testing Market Cap Statistics")
-    stats = cache.get_market_cap_stats()
-    if stats:
-        print(f"Cache contains {stats['total_stocks']} stocks")
-        print(f"Average market cap: ${stats['avg_market_cap']/1e9:.1f}B")
-    else:
-        print("No statistics available (cache empty)")
+    # 2. Memory cache hit on second call (no DB round-trip).
+    fundamentals_again = cache.get_fundamentals('RELIANCE.NS')
+    assert fundamentals_again is fundamentals or fundamentals is None, \
+        "Second call should hit memory cache and return the same dict"
+    print("Memory cache hit verified")
 
-    print("\nFundamental cache integration test completed")
+    # 3. Unknown ticker returns None cleanly.
+    missing = cache.get_fundamentals('NONEXISTENT.ZZ')
+    assert missing is None
+    print("Unknown ticker returned None")
+
+    print("\nFundamental cache test completed")
+
 
 if __name__ == '__main__':
     test_fundamental_cache()

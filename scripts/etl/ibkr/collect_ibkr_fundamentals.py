@@ -146,17 +146,8 @@ async def fetch_ibkr_fundamentals_only(ibkr_symbol: str, exchange: str, currency
 def save_fundamentals_to_db(ticker: str, fundamentals_data: dict) -> None:
     """Upsert fundamentals payload into ibkr_fundamentals."""
     print(f"[DB] Saving fundamentals for {ticker}...")
-    db = get_db()
-    db.execute(
-        """
-        INSERT INTO ibkr_fundamentals (ticker, xml_snapshot, xml_ratios, contract_details, last_updated)
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (ticker) DO UPDATE SET
-            xml_snapshot     = EXCLUDED.xml_snapshot,
-            xml_ratios       = EXCLUDED.xml_ratios,
-            contract_details = EXCLUDED.contract_details,
-            last_updated     = EXCLUDED.last_updated
-        """,
+    get_db().execute_file(
+        'etl/ibkr_fundamentals_upsert.sql',
         (
             ticker,
             fundamentals_data.get('xml_snapshot'),
@@ -213,11 +204,8 @@ def filter_resumable(tickers: List[str], max_age_days: int) -> Tuple[List[str], 
     """
     if max_age_days <= 0 or not tickers:
         return list(tickers), []
-    db = get_db()
-    rows = db.query(
-        "SELECT ticker FROM ibkr_fundamentals "
-        "WHERE xml_snapshot IS NOT NULL "
-        "  AND last_updated > NOW() - (%s || ' days')::INTERVAL",
+    rows = get_db().query_file(
+        'etl/ibkr_fundamentals_resume_filter.sql',
         (max_age_days,),
     )
     fresh = {r[0] for r in (rows or [])}

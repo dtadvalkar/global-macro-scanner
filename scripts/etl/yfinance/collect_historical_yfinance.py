@@ -22,37 +22,29 @@ import sys
 import os
 import io
 import time
-import psycopg2
 
 sys.path.append(os.getcwd())
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-from config.settings import DB_CONFIG
+from db import get_db
 from scripts.etl.yfinance.collect_daily_yfinance import ingest_multi_ohlcv, bulk_insert_prices
-
-DB_URL = (
-    f"postgresql://{DB_CONFIG['db_user']}:{DB_CONFIG['db_pass']}"
-    f"@{DB_CONFIG['db_host']}:{DB_CONFIG['db_port']}/{DB_CONFIG['db_name']}"
-)
 
 PERIOD = "10y"
 
 
-def get_fundamentals_tickers(conn) -> list[str]:
-    """Return all tickers from stock_fundamentals (curated NSE universe)."""
-    with conn.cursor() as cur:
-        cur.execute("SELECT ticker FROM stock_fundamentals ORDER BY ticker")
-        return [r[0] for r in cur.fetchall()]
+def get_fundamentals_tickers() -> list[str]:
+    """Return all tickers from stock_fundamentals (curated universe)."""
+    rows = get_db().query("SELECT ticker FROM stock_fundamentals ORDER BY ticker")
+    return [r[0] for r in (rows or [])]
 
 
-def get_exchange_tickers(conn, exchange: str) -> list[str]:
+def get_exchange_tickers(exchange: str) -> list[str]:
     """Return active tickers from the tickers table for a given exchange."""
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT ticker FROM tickers WHERE market = %s AND (status = 'ACTIVE' OR status IS NULL) ORDER BY ticker",
-            (exchange.upper(),),
-        )
-        return [r[0] for r in cur.fetchall()]
+    rows = get_db().query(
+        "SELECT ticker FROM tickers WHERE market = %s AND (status = 'ACTIVE' OR status IS NULL) ORDER BY ticker",
+        (exchange.upper(),),
+    )
+    return [r[0] for r in (rows or [])]
 
 
 def main():
@@ -94,17 +86,11 @@ def main():
     print(f"Safe   : ON CONFLICT (ticker, price_date) DO UPDATE")
     print("=" * 70)
 
-    try:
-        conn = psycopg2.connect(DB_URL)
-    except Exception as e:
-        print(f"❌ DB connection failed: {e}")
-        sys.exit(1)
-
     if exchanges:
         tickers = []
         seen = set()
         for ex in exchanges:
-            ex_tickers = get_exchange_tickers(conn, ex)
+            ex_tickers = get_exchange_tickers(ex)
             print(f"  {ex}: {len(ex_tickers)} active tickers")
             for t in ex_tickers:
                 if t not in seen:
@@ -112,7 +98,7 @@ def main():
                     tickers.append(t)
         print(f"\nFound {len(tickers)} unique tickers across {len(exchanges)} exchange(s)")
     else:
-        tickers = get_fundamentals_tickers(conn)
+        tickers = get_fundamentals_tickers()
         print(f"\nFound {len(tickers)} tickers in stock_fundamentals")
 
     total = len(tickers)
@@ -127,7 +113,6 @@ def main():
         print(f"❌ No tickers found in {source} — aborting.")
         if exchanges:
             print(f"   Run: PYTHONPATH='.' python scripts/etl/ibkr/seed_exchange_tickers.py --exchanges {','.join(exchanges)}")
-        conn.close()
         sys.exit(1)
 
     print(f"\nStarting bulk download ({args.period} × {total} tickers)...")
@@ -137,19 +122,16 @@ def main():
         df = ingest_multi_ohlcv(tickers, args.period)
     except Exception as e:
         print(f"❌ Download failed: {e}")
-        conn.close()
         sys.exit(1)
 
     if df.empty:
         print("❌ No data returned from YFinance — nothing inserted.")
-        conn.close()
         sys.exit(1)
 
     try:
-        bulk_insert_prices(conn, df)
+        bulk_insert_prices(df)
     except Exception as e:
         print(f"❌ Insert failed: {e}")
-        conn.close()
         sys.exit(1)
 
     duration = time.time() - t0
@@ -157,8 +139,6 @@ def main():
     print("=" * 70)
     print("COLLECTION COMPLETE")
     print("=" * 70)
-
-    conn.close()
 
 
 if __name__ == "__main__":

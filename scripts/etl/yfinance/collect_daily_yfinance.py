@@ -14,8 +14,6 @@ import argparse
 import sys
 import pandas as pd
 import yfinance as yf
-import psycopg2
-from psycopg2.extras import execute_values
 from datetime import datetime
 from pathlib import Path
 
@@ -23,26 +21,18 @@ from pathlib import Path
 import os
 sys.path.append(os.getcwd())
 
-from config.settings import DB_CONFIG
+from db import get_db
 
-# Construct DB connection string
-DB_URL = f"postgresql://{DB_CONFIG['db_user']}:{DB_CONFIG['db_pass']}@{DB_CONFIG['db_host']}:{DB_CONFIG['db_port']}/{DB_CONFIG['db_name']}"
 
 # ------------------------------------------------------------------
 # Helper: fetch the list of active tickers from the DB
 # ------------------------------------------------------------------
-def fetch_active_tickers(conn) -> list[str]:
+def fetch_active_tickers() -> list[str]:
     """Return a list of ticker symbols that are marked as active."""
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT ticker
-            FROM tickers
-            WHERE status = 'ACTIVE' OR status IS NULL
-            """
-        )
-        rows = cur.fetchall()
-    return [r[0] for r in rows]
+    rows = get_db().query(
+        "SELECT ticker FROM tickers WHERE status = 'ACTIVE' OR status IS NULL"
+    )
+    return [r[0] for r in (rows or [])]
 
 
 # ------------------------------------------------------------------
@@ -138,37 +128,16 @@ def ingest_multi_ohlcv(tickers: list[str], period: str) -> pd.DataFrame:
 
 
 # ------------------------------------------------------------------
-# Bulk-insert helper - uses psycopg2's execute_values for speed
+# Bulk-insert helper - uses execute_values via sql/etl/prices_daily_upsert.sql
 # ------------------------------------------------------------------
-def bulk_insert_prices(conn, df: pd.DataFrame):
-    """
-    Insert rows into `prices_daily`. The `datetimestamp` column is omitted
-    because PostgreSQL will fill it with its DEFAULT (NOW()).
-    """
+def bulk_insert_prices(df: pd.DataFrame):
+    """Insert rows into `prices_daily`. `datetimestamp` is set by NOW() on upsert."""
     if df.empty:
         print("⚠️  No rows to insert - nothing to do.")
         return
 
-    # Build a list of tuples matching the table columns (excluding datetimestamp)
     records = list(df.itertuples(index=False, name=None))
-
-    sql = """
-        INSERT INTO prices_daily
-            (ticker, price_date, open, high, low, close, volume)
-        VALUES %s
-        ON CONFLICT (ticker, price_date) DO UPDATE
-            SET open = EXCLUDED.open,
-                high = EXCLUDED.high,
-                low  = EXCLUDED.low,
-                close = EXCLUDED.close,
-                volume = EXCLUDED.volume,
-                datetimestamp = NOW();
-    """
-    # Note: We update datetimestamp on conflict update as well, to show it was refreshed.
-    
-    with conn.cursor() as cur:
-        execute_values(cur, sql, records, page_size=1000)
-    conn.commit()
+    get_db().execute_values_file('etl/prices_daily_upsert.sql', records)
     print(f"✅ Inserted/updated {len(records)} rows into prices_daily.")
 
 
@@ -187,52 +156,35 @@ def main():
     args = parser.parse_args()
 
     # ------------------------------------------------------------------
-    # 1. Connect to the DB
+    # 1. Pull active tickers
     # ------------------------------------------------------------------
     try:
-        conn = psycopg2.connect(DB_URL)
-    except Exception as exc:
-        print(f"❌ Could not connect to DB: {exc}")
-        sys.exit(1)
-
-    # ------------------------------------------------------------------
-    # 2. Pull active tickers
-    # ------------------------------------------------------------------
-    try:
-        tickers = fetch_active_tickers(conn)
+        tickers = fetch_active_tickers()
         print(f"🔎 Found {len(tickers)} active tickers.")
     except Exception as e:
         print(f"❌ Error fetching tickers: {e}")
-        conn.close()
         sys.exit(1)
 
     if not tickers:
         print("⚠️  No active tickers found. Exiting.")
-        conn.close()
         return
 
     # ------------------------------------------------------------------
-    # 3. Download & flatten data
+    # 2. Download & flatten data
     # ------------------------------------------------------------------
     try:
         df = ingest_multi_ohlcv(tickers, args.period)
     except Exception as exc:
         print(f"❌ yfinance download failed: {exc}")
-        conn.close()
         sys.exit(1)
 
     # ------------------------------------------------------------------
-    # 4. Bulk insert into the pre-created table
+    # 3. Bulk insert into the pre-created table
     # ------------------------------------------------------------------
     try:
-        bulk_insert_prices(conn, df)
+        bulk_insert_prices(df)
     except Exception as e:
         print(f"❌ Database insert failed: {e}")
-    
-    # ------------------------------------------------------------------
-    # 5. Clean up
-    # ------------------------------------------------------------------
-    conn.close()
 
 
 if __name__ == "__main__":

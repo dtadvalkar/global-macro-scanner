@@ -1,19 +1,24 @@
-from storage.database import DatabaseManager
-import json
+"""Quick market-cap distribution check against the curated stock_fundamentals."""
+from db import get_db
 
-db = DatabaseManager()
-conn = db._get_connection()
-cur = conn.cursor()
+db = get_db()
 
-print("--- Source Breakdown ---")
-cur.execute("SELECT data_source, count(*), count(market_cap_usd) FILTER (WHERE market_cap_usd > 0) as with_mcap FROM stock_fundamentals GROUP BY data_source")
-for row in cur.fetchall():
+print("--- Market Cap Distribution (curated stock_fundamentals) ---")
+rows = db.query("""
+    SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE mkt_cap_usd > 0) AS with_mcap,
+        COUNT(*) FILTER (WHERE mkt_cap_usd IS NULL) AS null_mcap
+    FROM stock_fundamentals
+""", fetch='one')
+print(f"total={rows[0]}, with_mcap={rows[1]}, null_mcap={rows[2]}")
+
+print("\n--- Top 10 by mkt_cap_usd ---")
+for row in db.query("""
+    SELECT ticker, mkt_cap_usd, industry_trbc
+    FROM stock_fundamentals
+    WHERE mkt_cap_usd IS NOT NULL
+    ORDER BY mkt_cap_usd DESC
+    LIMIT 10
+"""):
     print(row)
-
-print("\n--- FinanceDatabase Samples (Top 10) ---")
-cur.execute("SELECT ticker, market_cap_usd, sector, industry FROM stock_fundamentals WHERE data_source = 'financedatabase' LIMIT 10")
-for row in cur.fetchall():
-    print(row)
-
-cur.close()
-conn.close()

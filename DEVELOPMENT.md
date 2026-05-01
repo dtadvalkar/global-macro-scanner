@@ -94,6 +94,7 @@ results = db.query("SELECT ticker, close FROM prices_daily WHERE price_date = %s
 1. Add a named method to the `Database` class in `db.py` (or reuse `query`/`execute` inline for one-off ETL).
 2. For multi-step data transformations or aggregations, prefer a SQL view or function over Python loops.
 3. Never duplicate an existing query — check `db.py` first.
+4. Tiny one-table helper queries stay inline. Multi-table joins, CTEs, window functions, ETL transformations, analytical queries, and schema DDL live under `sql/` (`sql/etl/`, `sql/schema/`, `sql/analytics/`) and load via `db.query_file` / `db.execute_file` / `db.execute_values_file`.
 
 ### Preferred pattern for new data operations
 

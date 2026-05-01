@@ -128,8 +128,6 @@ class OptimizedYFinanceProvider(BaseProvider):
                 # Track failed stocks to avoid repeated processing
                 # Mark as persistent failure in DB if critical error
                 if any(keyword in error_str for keyword in ['delisted', 'not found', '404', 'no data found']):
-                    # Update DB to mark as inactive in BOTH tables (Fundamentals and Tickers)
-                    self.fundamentals_cache.set_fundamentals(symbol, {'is_active': False}, 'error_handler')
                     self.db.update_ticker_status(symbol, 'INACTIVE', f"YFinance Error: {str(e)[:50]}")
                     self.failed_stocks_cache[symbol] = self.failed_stocks_cache.get(symbol, 0) + 1
                     pass
@@ -193,56 +191,12 @@ class OptimizedYFinanceProvider(BaseProvider):
 
         try:
             results = asyncio.run(process_viable())
-
-            # Phase 3: Update fundamentals cache with fresh data
-            self._update_fundamentals_cache(results)
-
-            print(f"Processed {len(results)} stocks, fundamentals cache updated")
+            print(f"Processed {len(results)} stocks")
             return results
 
         except Exception as e:
             print(f"❌ Optimized YFinance error: {e}")
             return []
-
-    def _update_fundamentals_cache(self, results):
-        """Update fundamentals cache with data from successful scans"""
-        for result in results:
-            if 'symbol' in result and 'usd_mcap' in result:
-                ticker = result['symbol']
-                fundamentals = {
-                    'symbol': ticker.split('.')[0],
-                    'exchange': self._ticker_to_exchange(ticker),
-                    'market_cap_usd': int(result['usd_mcap'] * 1e6),  # Convert billions to full USD
-                    'sector': result.get('sector'),
-                    'industry': result.get('industry'),
-                    'currency': 'USD',  # Assuming conversion already done
-                    'country': self._exchange_to_country(self._ticker_to_exchange(ticker))
-                }
-                self.fundamentals_cache.set_fundamentals(ticker, fundamentals, 'yfinance')
-
-    def _ticker_to_exchange(self, ticker):
-        """Map ticker suffix to exchange code"""
-        if ticker.endswith('.NS'):
-            return 'NSE'
-        elif ticker.endswith('.TO'):
-            return 'TSE'
-        elif ticker.endswith('.JK'):
-            return 'IDX'
-        elif ticker.endswith('.BK'):
-            return 'SET'
-        else:
-            return 'SMART'  # US stocks
-
-    def _exchange_to_country(self, exchange):
-        """Map exchange to country"""
-        mapping = {
-            'NSE': 'India',
-            'TSE': 'Canada',
-            'IDX': 'Indonesia',
-            'SET': 'Thailand',
-            'SMART': 'United States'
-        }
-        return mapping.get(exchange, 'Unknown')
 
 class YFinanceProvider(BaseProvider):
     """
@@ -488,8 +442,11 @@ class IBKRProvider(BaseProvider):
         """Apply screening criteria to stored market data from current_market_data table"""
         results = []
 
+        if not tickers:
+            return results
+
         # Query current_market_data for these tickers
-        ticker_list = ','.join(f"'{t}'" for t in tickers)
+        placeholders = ','.join(['%s'] * len(tickers))
         query = f"""
             SELECT
                 ticker,
@@ -501,13 +458,13 @@ class IBKRProvider(BaseProvider):
                 volume,
                 last_updated
             FROM current_market_data
-            WHERE ticker IN ({ticker_list})
+            WHERE ticker IN ({placeholders})
             ORDER BY ticker
         """
 
         try:
             from screening.screening_utils import should_pass_screening
-            market_data_rows = self.db.query(query)
+            market_data_rows = self.db.query(query, tuple(tickers))
 
             for row in market_data_rows:
                 ticker, last_price, close_price, open_price, high_price, low_price, volume, last_updated = row
@@ -604,11 +561,9 @@ class IBKRProvider(BaseProvider):
                 pure_symbol = symbol[:-3]
             elif symbol.endswith('.JK'):
                 # Indonesia IDX not supported by IBKR - skip to YFinance fallback
-                self.fundamentals_cache.set_fundamentals(symbol, {'is_active': False, 'exchange': 'IDX'}, 'ibkr_validation')
                 return None
             elif symbol.endswith('.BK'):
                 # Thailand SET not supported by IBKR - skip to YFinance fallback
-                self.fundamentals_cache.set_fundamentals(symbol, {'is_active': False, 'exchange': 'SET'}, 'ibkr_validation')
                 return None
 
             # 2. Get fundamentals from cache (populated during universe refresh)
@@ -621,7 +576,6 @@ class IBKRProvider(BaseProvider):
                     # Non-blocking fetch for metadata
                     fundamentals_data = self._fetch_fundamentals_from_sources(symbol, exchange, currency)
                     if fundamentals_data:
-                        self.fundamentals_cache.set_fundamentals(symbol, fundamentals_data)
                         fundamentals = fundamentals_data
                 except Exception:
                     pass
@@ -633,10 +587,9 @@ class IBKRProvider(BaseProvider):
             # qualified is list of contracts. If empty or contains None, it failed.
             is_valid = qualified and qualified[0]
 
-            if not is_valid: 
-                # Contract invalid/delisted - mark as inactive in DB (Tickers and Fundamentals)
+            if not is_valid:
+                # Contract invalid/delisted - mark as inactive
                 self.db.update_ticker_status(symbol, 'INACTIVE', 'Error 200: Contract not found (IBKR)')
-                self.fundamentals_cache.set_fundamentals(symbol, {'is_active': False}, 'ibkr_validation')
                 return None
 
             # Attempt to fetch TRADES if possible for volume, otherwise MIDPOINT

@@ -40,38 +40,23 @@ from db import get_db
 
 # UTF-8 encoding removed due to subprocess issues
 
-from config import DB_CONFIG
-import psycopg2
 # Local definitions to avoid import issues
 IBKR_PORT = 7496  # Live account port
 
 def get_universe_tickers():
     """Get all tickers from raw_fd_nse universe table."""
     try:
-        conn = psycopg2.connect(dbname=DB_CONFIG['db_name'], user=DB_CONFIG['db_user'], password=DB_CONFIG['db_pass'], host=DB_CONFIG['db_host'], port=DB_CONFIG['db_port'])
-        cur = conn.cursor()
-        cur.execute("SELECT ticker FROM raw_fd_nse ORDER BY ticker")
-        tickers = [row[0] for row in cur.fetchall()]
-        cur.close()
-        conn.close()
-        return tickers
+        rows = get_db().query("SELECT ticker FROM raw_fd_nse ORDER BY ticker")
+        return [row[0] for row in rows] if rows else []
     except Exception as e:
         print(f"Error getting universe tickers: {e}")
         return []
 
 def get_screening_universe_tickers():
-    """Get all tickers from stock_fundamentals_fd for valid market cap categories."""
+    """Get all tickers from stock_fundamentals for the curated screening universe."""
     try:
-        conn = psycopg2.connect(dbname=DB_CONFIG['db_name'], user=DB_CONFIG['db_user'], password=DB_CONFIG['db_pass'], host=DB_CONFIG['db_host'], port=DB_CONFIG['db_port'])
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT ticker FROM stock_fundamentals
-            ORDER BY ticker
-        """)
-        tickers = [row[0] for row in cur.fetchall()]
-        cur.close()
-        conn.close()
-        return tickers
+        rows = get_db().query("SELECT ticker FROM stock_fundamentals ORDER BY ticker")
+        return [row[0] for row in rows] if rows else []
     except Exception as e:
         print(f"Error getting screening universe tickers: {e}")
         return []
@@ -170,19 +155,8 @@ async def collect_daily_ibkr_market_data():
                 
                 mkt_data = util.tree(mkt_ticker)
                 
-                # Save to database
-                db.execute("""
-                    INSERT INTO ibkr_market_data (ticker, market_data, last_price, bid_price, ask_price, volume, avg_volume, last_updated)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (ticker) DO UPDATE SET
-                        market_data = EXCLUDED.market_data,
-                        last_price = EXCLUDED.last_price,
-                        bid_price = EXCLUDED.bid_price,
-                        ask_price = EXCLUDED.ask_price,
-                        volume = EXCLUDED.volume,
-                        avg_volume = EXCLUDED.avg_volume,
-                        last_updated = EXCLUDED.last_updated
-                """, (
+                # Save to database (sql/etl/ibkr_market_data_upsert.sql)
+                db.execute_file('etl/ibkr_market_data_upsert.sql', (
                     ticker,
                     json.dumps(mkt_data),
                     mkt_data.get('last'),

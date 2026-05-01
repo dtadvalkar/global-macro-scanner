@@ -27,6 +27,7 @@ import os
 import time
 import logging
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Union
 from contextlib import contextmanager
 import json
@@ -47,6 +48,20 @@ except ImportError:
         'db_host': os.getenv('DB_HOST', 'localhost'),
         'db_port': os.getenv('DB_PORT', '5432')
     }
+
+
+# Reusable SQL is stored under sql/ at repo root and loaded via load_sql / db.{query,execute,execute_values}_file.
+# See DEVELOPMENT.md "Adding new DB behavior". Path is anchored to db.py so subprocess cwd shifts don't break it.
+_SQL_CACHE: Dict[str, str] = {}
+_SQL_DIR = Path(__file__).resolve().parent / 'sql'
+
+
+def load_sql(name: str) -> str:
+    """Read sql/<name> (e.g. 'etl/prices_daily_upsert.sql'). Cached per-process."""
+    if name not in _SQL_CACHE:
+        _SQL_CACHE[name] = (_SQL_DIR / name).read_text(encoding='utf-8')
+    return _SQL_CACHE[name]
+
 
 class Database:
     """
@@ -248,6 +263,30 @@ class Database:
                     conn.rollback()
                     self.logger.error(f"Bulk insert failed: {e}")
                     raise
+
+    # ============================================================================
+    # FILE-DRIVEN SQL HELPERS
+    # ============================================================================
+
+    def query_file(self, name: str, params: Tuple = None, fetch: str = 'all'):
+        """Run a SELECT loaded from sql/<name>."""
+        return self.query(load_sql(name), params, fetch)
+
+    def execute_file(self, name: str, params: Tuple = None) -> int:
+        """Run an INSERT/UPDATE/DELETE/DDL loaded from sql/<name>."""
+        return self.execute(load_sql(name), params)
+
+    def execute_values_file(self, name: str, rows: List[Tuple], page_size: int = 1000) -> int:
+        """Bulk-write via execute_values; SQL file must contain a `VALUES %s` placeholder."""
+        if not rows:
+            return 0
+        sql = load_sql(name)
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                psycopg2.extras.execute_values(cur, sql, rows, page_size=page_size)
+                affected = cur.rowcount
+                conn.commit()
+                return affected
 
     # ============================================================================
     # SCHEMA MANAGEMENT

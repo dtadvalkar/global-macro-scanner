@@ -30,10 +30,8 @@ import json
 import sys
 import xml.etree.ElementTree as ET
 
-import psycopg2
-
-from config import DB_CONFIG
 from config.markets import MARKET_REGISTRY, exchange_from_yf_ticker, get_yf_suffix
+from db import get_db
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -119,103 +117,6 @@ SCHEMA_COLUMNS = [
     # Meta
     'price_currency', 'last_fundamental_update',
 ]
-
-
-CREATE_SQL = """
-CREATE TABLE IF NOT EXISTS stock_fundamentals (
-    ticker                   TEXT PRIMARY KEY,
-    company_name             TEXT,
-
-    rep_no                   TEXT,
-    org_perm_id              TEXT,
-    isin                     TEXT,
-    ric                      TEXT,
-    exchange_code            TEXT,
-    exchange_country         TEXT,
-    most_recent_split_date   DATE,
-    most_recent_split_factor NUMERIC,
-
-    mkt_cap_usd              NUMERIC,
-    pe_ratio                 NUMERIC,
-    price_to_book            NUMERIC,
-    price_to_revenue         NUMERIC,
-    ev                       NUMERIC,
-    ebitda                   NUMERIC,
-    revenue_annual           NUMERIC,
-    net_income_annual        NUMERIC,
-    roe_pct                  NUMERIC,
-    gross_margin_pct         NUMERIC,
-    dividend_yield_pct       NUMERIC,
-    dividend_per_share       NUMERIC,
-    eps_basic                NUMERIC,
-    revenue_per_share        NUMERIC,
-    book_value_per_share     NUMERIC,
-    cash_per_share           NUMERIC,
-    cash_flow_per_share      NUMERIC,
-
-    target_price             NUMERIC,
-    proj_pe                  NUMERIC,
-    proj_eps                 NUMERIC,
-    proj_eps_q               NUMERIC,
-    proj_sales               NUMERIC,
-    proj_sales_q             NUMERIC,
-    proj_profit              NUMERIC,
-    proj_dps                 NUMERIC,
-    proj_lt_growth           NUMERIC,
-    recommendation_score     NUMERIC,
-
-    xml_52w_low              NUMERIC,
-    xml_52w_high             NUMERIC,
-    xml_last_price           NUMERIC,
-    xml_vol_10d_avg          NUMERIC,
-    xml_last_price_date      DATE,
-
-    co_status                TEXT,
-    co_type                  TEXT,
-    latest_annual_date       DATE,
-    latest_interim_date      DATE,
-    employees                INTEGER,
-    shares_out               NUMERIC,
-    shares_out_date          DATE,
-    total_float              NUMERIC,
-    reporting_currency       TEXT,
-    most_recent_exch_date    DATE,
-    most_recent_exch_val     NUMERIC,
-
-    industry_trbc            TEXT,
-    industry_trbc_code       TEXT,
-    industry_naics           TEXT,
-    industry_naics_code      TEXT,
-    industry_sic             TEXT,
-    industry_sic_code        TEXT,
-
-    address                  TEXT,
-    city                     TEXT,
-    postal_code              TEXT,
-    country_code             TEXT,
-    phone                    TEXT,
-    website                  TEXT,
-    email                    TEXT,
-
-    business_summary         TEXT,
-    financial_summary        TEXT,
-
-    officer_1_name           TEXT,
-    officer_1_title          TEXT,
-    officer_2_name           TEXT,
-    officer_2_title          TEXT,
-    officer_3_name           TEXT,
-    officer_3_title          TEXT,
-    officer_4_name           TEXT,
-    officer_4_title          TEXT,
-    officer_5_name           TEXT,
-    officer_5_title          TEXT,
-    officers_json            JSONB,
-
-    price_currency           TEXT,
-    last_fundamental_update  TIMESTAMP
-);
-"""
 
 
 def _parse_xml_to_record(ticker, xml_str, last_updated):
@@ -371,18 +272,10 @@ def _parse_xml_to_record(ticker, xml_str, last_updated):
 
 
 def flatten_final(exchange=None, replace=False):
-    conn = psycopg2.connect(
-        dbname=DB_CONFIG['db_name'],
-        user=DB_CONFIG['db_user'],
-        password=DB_CONFIG['db_pass'],
-        host=DB_CONFIG['db_host'],
-        port=DB_CONFIG['db_port'],
-    )
-    cur = conn.cursor()
+    db = get_db()
 
     print("[DB] Ensuring stock_fundamentals exists (CREATE IF NOT EXISTS, no DROP)...")
-    cur.execute(CREATE_SQL)
-    conn.commit()
+    db.execute_file('schema/stock_fundamentals.sql')
 
     if exchange is not None:
         suffix = get_yf_suffix(exchange)
@@ -390,27 +283,21 @@ def flatten_final(exchange=None, replace=False):
             raise ValueError(f"No yf_suffix for exchange {exchange}")
         like_pat = '%' + suffix
         if replace:
-            cur.execute(
+            deleted = db.execute(
                 "DELETE FROM stock_fundamentals WHERE ticker LIKE %s",
                 (like_pat,),
             )
-            print(f"[DB] --replace: deleted {cur.rowcount} existing {exchange} ({suffix}) rows")
-            conn.commit()
-        cur.execute(
-            "SELECT ticker, xml_snapshot, last_updated FROM ibkr_fundamentals "
-            "WHERE xml_snapshot IS NOT NULL AND ticker LIKE %s ORDER BY ticker",
-            (like_pat,),
-        )
+            print(f"[DB] --replace: deleted {deleted} existing {exchange} ({suffix}) rows")
+        rows = db.query_file('etl/ibkr_fundamentals_with_suffix.sql', (like_pat,))
     else:
-        cur.execute(
-            "SELECT ticker, xml_snapshot, last_updated FROM ibkr_fundamentals "
-            "WHERE xml_snapshot IS NOT NULL ORDER BY ticker"
-        )
+        rows = db.query_file('etl/ibkr_fundamentals_all.sql')
 
-    rows = cur.fetchall()
+    rows = rows or []
     scope = f"exchange={exchange}" if exchange else "all exchanges"
     print(f"[ETL] Flattening {len(rows)} records ({scope})...")
 
+    # Dynamic UPSERT: kept in Python because SCHEMA_COLUMNS is the schema source of truth.
+    # Contract: column ordering here MUST match sql/schema/stock_fundamentals.sql; reorder one and the other follows.
     insert_cols = ", ".join(SCHEMA_COLUMNS)
     placeholders = ", ".join(["%s"] * len(SCHEMA_COLUMNS))
     update_set = ", ".join(f"{c} = EXCLUDED.{c}" for c in SCHEMA_COLUMNS if c != 'ticker')
@@ -422,20 +309,20 @@ def flatten_final(exchange=None, replace=False):
 
     upserted = 0
     errors = 0
-    for ticker, xml_str, last_updated in rows:
-        try:
-            rec = _parse_xml_to_record(ticker, xml_str, last_updated)
-            cur.execute(upsert_sql, [rec[c] for c in SCHEMA_COLUMNS])
-            conn.commit()
-            upserted += 1
-            print(f"   ✅ {ticker} upserted.")
-        except Exception as e:
-            conn.rollback()
-            print(f"   ❌ {ticker}: {e}")
-            errors += 1
-
-    cur.close()
-    conn.close()
+    # Per-row commit/rollback so one bad XML doesn't poison the rest.
+    with db.get_connection() as conn:
+        with conn.cursor() as cur:
+            for ticker, xml_str, last_updated in rows:
+                try:
+                    rec = _parse_xml_to_record(ticker, xml_str, last_updated)
+                    cur.execute(upsert_sql, [rec[c] for c in SCHEMA_COLUMNS])
+                    conn.commit()
+                    upserted += 1
+                    print(f"   ✅ {ticker} upserted.")
+                except Exception as e:
+                    conn.rollback()
+                    print(f"   ❌ {ticker}: {e}")
+                    errors += 1
     print(f"\n🚀 Done. Upserted: {upserted}  Errors: {errors}")
 
 
