@@ -29,7 +29,8 @@ from datetime import datetime, timedelta
 import argparse
 import json
 
-from config import CRITERIA, MARKETS, TELEGRAM, DB_CONFIG, TEST_MODE
+import config
+from config import CRITERIA, MARKETS, TELEGRAM, DB_CONFIG
 from db import get_db
 from screener.universe import get_universe
 from screener.core import screen_universe
@@ -149,7 +150,7 @@ def daily_screen(markets=None):
 
     # Log + alert
     log_catches(catches)
-    if catches and not TEST_MODE:
+    if catches and not config.TEST_MODE:
         send_alerts(catches)
 
     print(f"[OK] Scan complete: {len(catches)} catches found")
@@ -196,7 +197,7 @@ async def run_daily_pipeline(filtered_markets, skip_collection=False, skip_flatt
         print("✅ Data freshness check passed")
     else:
         print("❌ Data freshness check failed - screening may be unreliable")
-        if not TEST_MODE:
+        if not config.TEST_MODE:
             print("⚠️  Continuing with screening anyway (use --mode test to skip)")
             pipeline_success = False
 
@@ -212,7 +213,7 @@ async def run_daily_pipeline(filtered_markets, skip_collection=False, skip_flatt
         print(f"📊 Found {len(catches)} trading opportunities")
 
         if catches:
-            print("🚨 Alerts sent!" if not TEST_MODE else "🧪 Test mode - no alerts sent")
+            print("🚨 Alerts sent!" if not config.TEST_MODE else "🧪 Test mode - no alerts sent")
         else:
             print("📭 No opportunities found today")
 
@@ -290,8 +291,7 @@ if __name__ == '__main__':
         else:
             print("No markets are currently enabled in config/markets.py")
 
-    # Set global TEST_MODE
-    import config
+    # Set global TEST_MODE (module-level mutation; downstream code reads via config.TEST_MODE)
     if args.mode == 'test':
         config.TEST_MODE = True
         print("🧪 MODE: TEST (No alerts, limited data)")
