@@ -99,28 +99,27 @@ FROM stock_fundamentals GROUP BY 1 ORDER BY 1''',
 
 **Stop condition:** if total != 1844 or per-exchange counts diverge from baseline, halt and investigate before Step 2. The likely failure mode would be an XML parse regression introduced by the C.2 refactor (which only changed the DB layer + read SELECT boundary; XML parse logic is unchanged).
 
-### Step 2 — Reseed `tickers` (per-exchange, gated)
+### Step 2 — Reseed `tickers` (DONE 2026-05-09)
 
-The `tickers` table feeds different ETL scripts and sources differ per exchange. Each command needs explicit user approval before running.
+Executed via the FinanceDatabase-backed `screener.universe.get_universe(markets)` path with all seven IBKR-free exchanges enabled. The `is_market_fresh` gate returned False for every market (table was empty), so the FD seed branch fired for each, and `db.save_tickers` committed the results. Final per-market counts match the Task 11 universe baselines exactly:
 
-**Current guidance as of 2026-05-02:** prefer the FinanceDatabase-backed universe path in `screener/universe.py` first. It is the canonical seed route for NSE, SEHK, LSE, JSE, TADAWUL, ASX, SGX, IDX, and SET when the market is not fresh. `scripts/etl/ibkr/seed_exchange_tickers.py` remains useful, but mostly as a static-list fallback for SEHK/LSE/JSE/TADAWUL; it is not the primary reseed route for NSE, ASX, SGX, IDX, or SET.
+| Market | Count | Notes |
+|---|---:|---|
+| NSE | 1,933 | Full FD list (NSE intentionally excluded from `CAP_FILTERED_EXCHANGES`) |
+| LSE | 1,326 | Cap-filtered (Large+Mid+Small) |
+| SEHK | 664 | Cap-filtered |
+| ASX | 498 | Cap-filtered |
+| SGX | 172 | Cap-filtered |
+| TADAWUL | 103 | Cap-filtered |
+| JSE | 81 | Cap-filtered |
+| **Total** | **4,777** | |
 
-**Recommended order before execution:**
+**Masking-bug surfaced and fixed during the run.** Each market logged a misleading `Warning: <market> FD load failed: 'charmap' codec can't encode character '✅'` because the success-line print at `screener/universe.py:79` used a `✅` emoji that fails on Windows codepage 1252; the broad `except Exception` at line 83 then caught the UnicodeEncodeError and labeled it as an FD failure. The save itself had already committed. Same class of bug as the `reset_db_schema.py` incident this whole plan exists to recover from. Fixed in commit 9ea60c7 by switching the two non-ASCII print literals in `get_universe` to `[ok]`/`[info]` prefixes, matching the ASCII-only convention added to DEVELOPMENT.md in fcd249f.
 
-a. **Read-only audit.** Re-check current writer paths for `tickers` so the recovery does not rely on stale notes. Confirm `db.save_tickers()`, `screener/universe.py`, and `seed_exchange_tickers.py` behavior in the current worktree.
-
-b. **FinanceDatabase route first.** Use the normal universe-loading path to reseed markets that have FD support. This likely means invoking the scanner/universe path with the intended markets in a controlled test mode, not inventing one-off seed scripts.
-
-c. **Static-list fallback only where appropriate.** If FD is unavailable or unsuitable for SEHK/LSE/JSE/TADAWUL, run `scripts/etl/ibkr/seed_exchange_tickers.py --source static --exchanges SEHK,LSE,JSE,TADAWUL` or a narrower exchange list.
-
-d. **Avoid IBKR scanner reseeding unless deliberately chosen.** `seed_exchange_tickers.py --source ibkr` requires scanner access and historically did not work on the default free delayed feed for the relevant markets.
-
-**Pre-Step-2 audit (read-only, ~1 min):** before issuing any seed command, search for the actual seed callers per exchange so we don't invent paths:
-```bash
-grep -rn "save_tickers\|INSERT INTO tickers\|tickers (ticker" --include='*.py' .
-```
-
-This pins down which scripts actually write to `tickers` for each market.
+**Verification:**
+- `.venv/Scripts/python.exe db.py health` → `issues: []`, `tickers.row_count = 4777`.
+- `SELECT market, COUNT(*) FROM tickers GROUP BY market` → matches the table above.
+- No call to `seed_exchange_tickers.py` was needed; static-list fallback remains available if a future FD coverage gap appears.
 
 ### Step 3 — End-to-end verification
 
@@ -187,7 +186,8 @@ Identified during the work but excluded from the first pass. Take only if the us
 | Now | Confirm deferred runbook; do not execute before Spark. | None |
 | Spark plan | Proceed unless Spark explicitly needs scanner/ETL validation or restored `tickers` / `stock_fundamentals`. | Low — empty tables are known local DB state |
 | 2026-05-09 | **Step 1 complete:** `stock_fundamentals` restored to 1,844 rows via `flatten_ibkr_final`. Per-exchange counts match baseline exactly. | Risk realized: low — clean restore. |
-| Next | Pre-Step-2 audit for `tickers` write callers and current FD behavior. | None (read-only) |
+| 2026-05-09 | Pre-Step-2 audit completed: confirmed `db.save_tickers` is the sole writer, called by `screener/universe.py` (FD primary) and `seed_exchange_tickers.py` (static fallback for SEHK/LSE/JSE/TADAWUL only). | None (read-only) |
+| 2026-05-09 | **Step 2 complete:** `tickers` reseeded to 4,777 rows via `get_universe(markets)` for all 7 active exchanges. Counts match Task 11 baselines exactly. Masking bug at `screener/universe.py:79` (`✅` emoji + Windows cp1252) surfaced and fixed in commit 9ea60c7. | Risk realized: low — bug was cosmetic; data path was correct. |
 | Later, gated | Step 2: reseed `tickers` through FD-backed universe path first; use static fallback only where appropriate. | Medium — depends on FD availability and current market mappings |
 | Later | Step 3: end-to-end NSE `--mode test --skip-collection` smoke. | Low — refactor verified offline |
 | Later | Step 4 follow-ups (optional, à la carte). | Low |
