@@ -121,26 +121,24 @@ Executed via the FinanceDatabase-backed `screener.universe.get_universe(markets)
 - `SELECT market, COUNT(*) FROM tickers GROUP BY market` → matches the table above.
 - No call to `seed_exchange_tickers.py` was needed; static-list fallback remains available if a future FD coverage gap appears.
 
-### Step 3 — End-to-end verification
+### Step 3 — End-to-end verification (DONE 2026-05-09)
 
-After both restore steps:
+Ran `PYTHONPATH=. .venv/Scripts/python main.py --exchanges NSE --mode test --skip-collection --skip-flattening` after Steps 1+2. The pipeline reached Step 4, loaded the 1,933 reseeded NSE tickers, ran the IBKR Stored Data Scan over the full universe, and exited cleanly:
 
-```bash
-# DB health
-.venv/Scripts/python db.py health
-.venv/Scripts/python db.py validate
-
-# Universe pre-flight: counts match expected baselines
-# (Task 10 final: 264 tickers SEHK/LSE/JSE/TADAWUL; Task 11: 1844 fundamentals)
-
-# Pipeline smoke (no live collection — exercises the refactored path)
-PYTHONPATH='.' .venv/Scripts/python main.py --exchanges NSE --mode test --skip-collection --skip-flattening
-# Expected: data freshness check warns on stale current_market_data (>24h since 2026-04-27).
-# In TEST mode the pipeline continues; screening returns 0 catches against post-restore data.
-
-# Optional full path (live IBKR required)
-PYTHONPATH='.' .venv/Scripts/python main.py --exchanges NSE --mode test
 ```
+Loaded 1933 actionable NSE tickers from DB.
+Loaded 1933 stocks total
+IBKR Stored Data Scan: 1933 stocks...
+[OK] Scan complete: 0 catches found
+🎉 DAILY PIPELINE COMPLETE
+📭 No opportunities found today
+```
+
+Zero catches is expected: `current_market_data` is 12 days stale (last_updated 2026-04-27), so no ticker satisfies "within 103% of 52w low" against the snapshot. The acceptance signal is that the refactored DB path (`db.py` + `sql/` + restored `tickers` + restored `stock_fundamentals`) end-to-end produces the COMPLETE banner, not the verdict on catches.
+
+**Pre-existing bug surfaced and fixed during the smoke.** The first run printed "DAILY PIPELINE INCOMPLETE — Pipeline failed" despite `--mode test`, because `main.py` did `from config import TEST_MODE` at module scope and bound the value `False` locally; the CLI handler's `config.TEST_MODE = True` mutation never reached the downstream checks. Fixed in commit 92593bd by switching to `import config` and `config.TEST_MODE` references throughout. Same family as the universe.py masking bug — both were pre-existing footguns the smoke surfaced.
+
+Optional full-IBKR variant (`main.py --exchanges NSE --mode test`) is not required for Step 3 acceptance.
 
 ---
 
@@ -188,6 +186,7 @@ Identified during the work but excluded from the first pass. Take only if the us
 | 2026-05-09 | **Step 1 complete:** `stock_fundamentals` restored to 1,844 rows via `flatten_ibkr_final`. Per-exchange counts match baseline exactly. | Risk realized: low — clean restore. |
 | 2026-05-09 | Pre-Step-2 audit completed: confirmed `db.save_tickers` is the sole writer, called by `screener/universe.py` (FD primary) and `seed_exchange_tickers.py` (static fallback for SEHK/LSE/JSE/TADAWUL only). | None (read-only) |
 | 2026-05-09 | **Step 2 complete:** `tickers` reseeded to 4,777 rows via `get_universe(markets)` for all 7 active exchanges. Counts match Task 11 baselines exactly. Masking bug at `screener/universe.py:79` (`✅` emoji + Windows cp1252) surfaced and fixed in commit 9ea60c7. | Risk realized: low — bug was cosmetic; data path was correct. |
+| 2026-05-09 | **Step 3 complete:** end-to-end smoke `main.py --exchanges NSE --mode test --skip-collection --skip-flattening` reaches Step 4, loads 1,933 NSE tickers, runs the IBKR Stored Data Scan, exits "DAILY PIPELINE COMPLETE" with 0 catches (expected; `current_market_data` is stale). Pre-existing TEST_MODE import-binding bug in `main.py` surfaced and fixed in commit 92593bd. | Risk realized: low — recovery work is verified end-to-end. |
 | Later, gated | Step 2: reseed `tickers` through FD-backed universe path first; use static fallback only where appropriate. | Medium — depends on FD availability and current market mappings |
 | Later | Step 3: end-to-end NSE `--mode test --skip-collection` smoke. | Low — refactor verified offline |
 | Later | Step 4 follow-ups (optional, à la carte). | Low |
