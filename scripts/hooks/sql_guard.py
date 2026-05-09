@@ -118,6 +118,15 @@ def is_excluded(rel: str) -> bool:
     return any(p in EXCLUDE_DIRS for p in Path(rel).parts)
 
 
+def is_under(path: Path, root: Path) -> bool:
+    """Return True iff `path` is inside `root` (or root itself)."""
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
 def iter_repo_py_files() -> list[Path]:
     return [
         p for p in REPO_ROOT.rglob("*.py")
@@ -136,11 +145,9 @@ def resolve_targets(argv: list[str]) -> list[Path]:
         if p.suffix != ".py" or not p.exists():
             continue
         # Skip explicit targets that resolve outside REPO_ROOT — main()
-        # downstream calls path.relative_to(REPO_ROOT), which raises
+        # downstream calls path.relative_to(REPO_ROOT), which would raise
         # ValueError on out-of-repo paths.
-        try:
-            p.relative_to(REPO_ROOT)
-        except ValueError:
+        if not is_under(p, REPO_ROOT):
             continue
         paths.append(p)
     return paths
