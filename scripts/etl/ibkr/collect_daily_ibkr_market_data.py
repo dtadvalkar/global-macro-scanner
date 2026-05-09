@@ -37,20 +37,13 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 sys.path.insert(0, project_root)
 
 from db import get_db
+from config.markets import (
+    MARKET_REGISTRY,
+    exchange_from_yf_ticker,
+    normalise_ibkr_symbol,
+)
 
-# UTF-8 encoding removed due to subprocess issues
-
-# Local definitions to avoid import issues
 IBKR_PORT = 7496  # Live account port
-
-def get_universe_tickers():
-    """Get all tickers from raw_fd_nse universe table."""
-    try:
-        rows = get_db().query("SELECT ticker FROM raw_fd_nse ORDER BY ticker")
-        return [row[0] for row in rows] if rows else []
-    except Exception as e:
-        print(f"Error getting universe tickers: {e}")
-        return []
 
 def get_screening_universe_tickers():
     """Get all tickers from stock_fundamentals for the curated screening universe."""
@@ -60,43 +53,6 @@ def get_screening_universe_tickers():
     except Exception as e:
         print(f"Error getting screening universe tickers: {e}")
         return []
-
-async def fetch_market_data_batch(ib, symbols, port):
-    """Fetch market data for a batch of symbols using an existing IB connection."""
-    from ib_insync import Stock, util
-    
-    results = {}
-    for symbol in symbols:
-        ticker_result = {"mkt_data": None, "contract_details": None, "error": None}
-        try:
-            # IBKR symbols for NSE usually don't have the .NS suffix
-            clean_symbol = symbol.split('.')[0]
-            contract = Stock(clean_symbol, 'NSE', 'INR')
-            qualified = await ib.qualifyContractsAsync(contract)
-
-            if not qualified:
-                ticker_result["error"] = "Contract not qualified"
-                results[symbol] = ticker_result
-                continue
-
-            # Market Data Only
-            ib.reqMarketDataType(3)
-            ticker = ib.reqMktData(qualified[0], "", snapshot=True)
-            
-            # Wait briefly for data
-            for _ in range(10):
-                await asyncio.sleep(0.1)
-                if ticker.last > 0:
-                    break
-            
-            ticker_result["mkt_data"] = util.tree(ticker)
-            results[symbol] = ticker_result
-            
-        except Exception as e:
-            ticker_result["error"] = str(e)
-            results[symbol] = ticker_result
-            
-    return results
 
 async def collect_daily_ibkr_market_data():
     """Collect current market data from IBKR using a persistent connection."""
@@ -130,15 +86,28 @@ async def collect_daily_ibkr_market_data():
         error_count = 0
         db = get_db()
 
+        from ib_insync import Stock, util
+
         for i, ticker in enumerate(screening_tickers, 1):
             if i % 10 == 0:
                 print(f"Progress: {i}/{total_tickers}...")
-            
+
             try:
-                # Process single ticker with the active connection
-                clean_symbol = ticker.split('.')[0]
-                from ib_insync import Stock, util
-                contract = Stock(clean_symbol, 'NSE', 'INR')
+                # Build per-exchange IBKR contract from the yfinance-format ticker.
+                # exchange_from_yf_ticker derives the IBKR exchange code from the
+                # suffix (.NS->NSE, .HK->SEHK, .L->LSE, etc.); normalise_ibkr_symbol
+                # applies the per-exchange symbol_rule (strip leading zeros for
+                # SEHK, append trailing period to short LSE codes); MARKET_REGISTRY
+                # supplies the IBKR currency. All seven active free exchanges are
+                # covered; tickers without a recognised suffix are skipped.
+                exchange = exchange_from_yf_ticker(ticker)
+                if not exchange:
+                    error_count += 1
+                    continue
+                base_symbol = ticker.rsplit('.', 1)[0]
+                ibkr_symbol = normalise_ibkr_symbol(base_symbol, exchange)
+                currency = MARKET_REGISTRY[exchange]['ibkr_currency']
+                contract = Stock(ibkr_symbol, exchange, currency)
                 qualified = await ib.qualifyContractsAsync(contract)
 
                 if not qualified:
