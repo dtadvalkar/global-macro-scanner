@@ -133,8 +133,16 @@ def resolve_targets(argv: list[str]) -> list[Path]:
         p = Path(arg)
         if not p.is_absolute():
             p = REPO_ROOT / p
-        if p.suffix == ".py" and p.exists():
-            paths.append(p)
+        if p.suffix != ".py" or not p.exists():
+            continue
+        # Skip explicit targets that resolve outside REPO_ROOT — main()
+        # downstream calls path.relative_to(REPO_ROOT), which raises
+        # ValueError on out-of-repo paths.
+        try:
+            p.relative_to(REPO_ROOT)
+        except ValueError:
+            continue
+        paths.append(p)
     return paths
 
 
