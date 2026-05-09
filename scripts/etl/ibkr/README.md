@@ -20,7 +20,6 @@ scripts/etl/ibkr/
 ├── flatten_ibkr_final.py             # XML → stock_fundamentals
 ├── flatten_ibkr_market_data.py       # ibkr_market_data → current_market_data
 ├── schedule_quarterly_fundamentals.py # Quarterly scheduler
-├── test_raw_ingestion.py            # Experimental; not on the production path
 └── README.md                        # This file
 ```
 
@@ -140,7 +139,6 @@ Telegram Alerts → Criteria matches sent to users
 ## 🔧 **Migration Notes**
 
 ### **From Legacy System**
-- `test_raw_ingestion.py` moved from `yfinance/` folder
 - Fundamentals and market data now separated
 - Database schema unchanged (backward compatible)
 

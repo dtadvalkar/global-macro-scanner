@@ -123,10 +123,7 @@ Caveat: psycopg2 treats unmatched `%` in SQL as format tokens when parameters ar
 
 ### Retired or vestigial scripts
 
-Some scripts predate the SQL-externalization discipline and remain in the tree as historical artifacts. They will trip the pre-commit guard if anyone edits them — the right response is to either externalize the SQL (and migrate to `db.py`) or delete the script. Do not bypass the guard. Currently in this state:
-
-- `scripts/utils/create_market_data_table.py` — one-shot migration, already executed.
-- `scripts/etl/ibkr/test_raw_ingestion.py` — experimental; schemas drift from production.
+Some scripts predate the SQL-externalization discipline and may surface as `sql_guard` violations under `pre-commit run --all-files`. The right response is to either externalize the SQL (and migrate to `db.py`) or delete the script. Do not bypass the guard. The list is currently empty — `create_market_data_table.py` and `test_raw_ingestion.py` were the original entries and were retired in the same commit that cleaned up this section.
 
 ### Preferred pattern for new data operations
 

@@ -67,7 +67,7 @@ pip install --upgrade -r requirements.txt
 - [ ] Table info: `python db.py info --table stock_fundamentals`
 
 ### Phase 3: ETL Pipeline Testing
-- [ ] YFinance import: `python -c "from scripts.etl.yfinance.test_raw_ingestion import get_fundamentals_tickers; print('YF import OK')"`
+- [ ] YFinance import: `python -c "from scripts.etl.yfinance.collect_daily_yfinance import fetch_active_tickers; print('YF import OK')"`
 - [ ] IBKR import: `python -c "from scripts.etl.ibkr.flatten_ibkr_market_data import create_current_market_data_table; print('IBKR import OK')"`
 
 ### Phase 4: Main Application Testing
