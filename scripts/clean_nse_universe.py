@@ -9,27 +9,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import yfinance as yf
-import psycopg2
 from datetime import datetime
-from config import DB_CONFIG
-
-# Normalize database config for psycopg2
-def _normalize_db_config(config):
-    """Normalize database config for psycopg2 compatibility"""
-    normalized = config.copy()
-    param_mapping = {
-        'db_name': 'database',
-        'db_user': 'user',
-        'db_pass': 'password',
-        'db_host': 'host',
-        'db_port': 'port'
-    }
-    for old_key, new_key in param_mapping.items():
-        if old_key in normalized:
-            normalized[new_key] = normalized.pop(old_key)
-    return normalized
-
-DB_CONFIG = _normalize_db_config(DB_CONFIG)
+from db import get_db
 
 def validate_stock(symbol, quick_check=True):
     """
@@ -75,17 +56,13 @@ def clean_nse_universe(batch_size=100, max_stocks=None):
     print("This may take several minutes...")
 
     # Get current NSE universe
+    db = get_db()
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
-
-        cur.execute("SELECT ticker FROM tickers WHERE exchange = 'NSE' ORDER BY ticker")
-        result = cur.fetchall()
+        result = db.query(
+            "SELECT ticker FROM tickers WHERE exchange = %s ORDER BY ticker",
+            ('NSE',),
+        )
         all_stocks = [row[0] for row in result]
-
-        cur.close()
-        conn.close()
-
     except Exception as e:
         print(f"Error loading NSE universe: {e}")
         return
@@ -136,9 +113,6 @@ def clean_nse_universe(batch_size=100, max_stocks=None):
     print(f"  Invalid stocks: {len(invalid_stocks)}")
 
     try:
-        from db import get_db
-        db = get_db()
-
         # Mark invalid stocks as inactive (commented-out DELETE option intentionally
         # not migrated; if the destructive option is ever wanted, externalize it
         # to sql/etl/ first per DEVELOPMENT.md).
@@ -199,15 +173,13 @@ def test_cleaned_universe():
     print(f"=" * 40)
 
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
-
+        db = get_db()
         # Get active NSE stocks
-        cur.execute("SELECT ticker FROM tickers WHERE exchange = 'NSE' AND is_active = TRUE ORDER BY ticker")
-        active_stocks = [row[0] for row in cur.fetchall()]
-
-        cur.close()
-        conn.close()
+        result = db.query(
+            "SELECT ticker FROM tickers WHERE exchange = %s AND is_active = TRUE ORDER BY ticker",
+            ('NSE',),
+        )
+        active_stocks = [row[0] for row in result]
 
         print(f"Active NSE stocks in database: {len(active_stocks)}")
 
