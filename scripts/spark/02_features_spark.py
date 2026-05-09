@@ -1,10 +1,11 @@
 """
 Phase 3 — Spark transformation over the bounded sample.
 
-Reads data_files/spark/prices_daily_sample.parquet with an explicit StructType
-(no inferSchema), computes 52w low + days_since_low per ticker against a fixed
-as-of date, prints a deterministic preview, and writes the per-ticker feature
-table to Parquet for the Phase 4 comparison.
+Reads data_files/spark/prices_daily_sample.parquet (no explicit StructType --
+the Parquet footer is canonical; forcing a different precision raises
+SchemaColumnConvertNotSupportedException), computes 52w low + days_since_low
+per ticker against a fixed as-of date, prints a deterministic preview, and
+writes the per-ticker feature table to Parquet for the Phase 4 comparison.
 
 Mirrors data/providers.py:66,247,270-273 semantics:
   - low_52w = min(low) over the trailing-252 window per ticker
