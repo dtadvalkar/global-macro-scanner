@@ -47,18 +47,18 @@ Handoff note: `docs/tasks/sql_externalization_progress.md` (with closeout update
 
 ---
 
-## Current DB state (post-incident)
+## Current DB state (Step 1 complete 2026-05-09)
 
 | Table | Rows | Status |
 |---|---|---|
-| `tickers` | 0 | **EMPTY** (was 5824) — needs reseed |
-| `stock_fundamentals` | 0 | **EMPTY** (was 1844) — restore from `ibkr_fundamentals` |
-| `ibkr_fundamentals` | 2108 (1907 with `xml_snapshot`) | intact (source for restore) |
+| `tickers` | 0 | **EMPTY** (was 5824) — Step 2 still deferred |
+| `stock_fundamentals` | **1,844** | **RESTORED 2026-05-09** via `flatten_ibkr_final` from intact `ibkr_fundamentals`. Per-exchange counts match Task 11 baseline exactly. |
+| `ibkr_fundamentals` | 2108 (1907 with `xml_snapshot`) | intact (source for the Step 1 restore) |
 | `ibkr_market_data` | 1461 | intact |
 | `prices_daily` | 5,598,705 | intact (5.6M baseline) |
-| `current_market_data` | 923 | intact, last_updated 2026-04-27 (now stale) |
+| `current_market_data` | 923 | intact, last_updated 2026-04-27 (stale — refresh after Step 2) |
 
-No backup snapshot exists for the lost rows.
+The Step 1 restore wrote 1,844 upserts with 63 XML-parse errors (data quality on the IBKR raw side, not a regression introduced by the C.2 refactor). Per-exchange acceptance: NSE 408 / SEHK 597 / ASX 327 / LSE 241 / SGX 124 / TADAWUL 96 / JSE 51 = 1,844 — zero drift from the baseline.
 
 ---
 
@@ -66,7 +66,7 @@ No backup snapshot exists for the lost rows.
 
 Run this sequence only when scanner/ETL validation needs `tickers` and `stock_fundamentals` restored, or when the user explicitly asks to recover the local DB. This is intentionally not part of the Spark-plan critical path.
 
-### Step 1 — Restore `stock_fundamentals` (deterministic, ≤1 min)
+### Step 1 — Restore `stock_fundamentals` (DONE 2026-05-09; deterministic, ≤1 min)
 
 ```bash
 PYTHONPATH='.' .venv/Scripts/python -m scripts.etl.ibkr.flatten_ibkr_final
@@ -186,8 +186,8 @@ Identified during the work but excluded from the first pass. Take only if the us
 |---|---|---|
 | Now | Confirm deferred runbook; do not execute before Spark. | None |
 | Spark plan | Proceed unless Spark explicitly needs scanner/ETL validation or restored `tickers` / `stock_fundamentals`. | Low — empty tables are known local DB state |
-| Later, when recovery is requested | Step 1: restore `stock_fundamentals` via `flatten_ibkr_final`. Verify per-exchange counts. | Low — deterministic, source data intact |
-| Later, same session | Pre-Step-2 audit for `tickers` write callers and current FD behavior. | None (read-only) |
+| 2026-05-09 | **Step 1 complete:** `stock_fundamentals` restored to 1,844 rows via `flatten_ibkr_final`. Per-exchange counts match baseline exactly. | Risk realized: low — clean restore. |
+| Next | Pre-Step-2 audit for `tickers` write callers and current FD behavior. | None (read-only) |
 | Later, gated | Step 2: reseed `tickers` through FD-backed universe path first; use static fallback only where appropriate. | Medium — depends on FD availability and current market mappings |
 | Later | Step 3: end-to-end NSE `--mode test --skip-collection` smoke. | Low — refactor verified offline |
 | Later | Step 4 follow-ups (optional, à la carte). | Low |
