@@ -9,17 +9,18 @@ The IBKR data collection system is now properly separated by **update frequency*
 | Data Type | Update Frequency | Script | Purpose |
 |-----------|------------------|--------|---------|
 | **Fundamentals** | Quarterly | `collect_ibkr_fundamentals.py` | ReportSnapshot, ReportRatios, ContractDetails |
-| **Market Data** | Daily/Hourly | `collect_ibkr_market_data.py` | OHLCV, Volume, Bid/Ask |
+| **Market Data** | Daily | `collect_daily_ibkr_market_data.py` | OHLCV snapshot via reqHistoricalData |
 
 ### 📁 **File Organization**
 
 ```
 scripts/etl/ibkr/
 ├── collect_ibkr_fundamentals.py      # Quarterly fundamentals collection
-├── collect_ibkr_market_data.py       # Frequent market data collection
-├── collect_daily_ibkr_market_data.py # Legacy daily script (updated)
+├── collect_daily_ibkr_market_data.py # Daily market-data collection (active path)
+├── flatten_ibkr_final.py             # XML → stock_fundamentals
+├── flatten_ibkr_market_data.py       # ibkr_market_data → current_market_data
 ├── schedule_quarterly_fundamentals.py # Quarterly scheduler
-├── test_raw_ingestion.py            # Moved from yfinance/ (legacy)
+├── test_raw_ingestion.py            # Experimental; not on the production path
 └── README.md                        # This file
 ```
 
@@ -62,11 +63,10 @@ python schedule_quarterly_fundamentals.py --run
 
 **Usage:**
 ```bash
-# Update market data for specific tickers
-python collect_ibkr_market_data.py RELIANCE.NS TCS.NS
-
-# Update for all tickers in investment universe
-python collect_ibkr_market_data.py --all-universe
+# Daily collector pulls OHLCV snapshots into ibkr_market_data for the
+# active universe (multi-exchange post-Task 11). It is the canonical
+# market-data collector — orchestrated by main.py.
+python scripts/etl/ibkr/collect_daily_ibkr_market_data.py
 ```
 
 ## 🗂️ **Database Schema**
@@ -162,7 +162,7 @@ python scripts/etl/ibkr/collect_ibkr_fundamentals.py --all-universe
 python scripts/etl/ibkr/flatten_ibkr_final.py
 
 # 3. Collect initial market data
-python scripts/etl/ibkr/collect_ibkr_market_data.py --missing-market-data
+python scripts/etl/ibkr/collect_daily_ibkr_market_data.py
 
 # 4. Flatten for screening
 python scripts/etl/ibkr/flatten_ibkr_market_data.py
@@ -185,8 +185,8 @@ python main.py
 # Quarterly: Update fundamentals only
 python scripts/etl/ibkr/schedule_quarterly_fundamentals.py --run
 
-# Manual: Update specific market data
-python scripts/etl/ibkr/collect_ibkr_market_data.py RELIANCE.NS TCS.NS
+# Manual: Re-run the daily market-data collector ad hoc
+python scripts/etl/ibkr/collect_daily_ibkr_market_data.py
 ```
 
 This architecture ensures efficient data collection while maintaining data integrity and reliability.
