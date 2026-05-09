@@ -136,64 +136,42 @@ def clean_nse_universe(batch_size=100, max_stocks=None):
     print(f"  Invalid stocks: {len(invalid_stocks)}")
 
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
+        from db import get_db
+        db = get_db()
 
-        # Mark invalid stocks as inactive or remove them
+        # Mark invalid stocks as inactive (commented-out DELETE option intentionally
+        # not migrated; if the destructive option is ever wanted, externalize it
+        # to sql/etl/ first per DEVELOPMENT.md).
         if invalid_stocks:
             invalid_tickers = [stock for stock, reason in invalid_stocks]
             placeholders = ','.join(['%s'] * len(invalid_tickers))
-
-            # Option 1: Remove completely
-            # cur.execute(f"DELETE FROM tickers WHERE ticker IN ({placeholders}) AND exchange = 'NSE'", invalid_tickers)
-
-            # Option 2: Mark as inactive (safer)
-            cur.execute(f"""
-                UPDATE tickers
-                SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
-                WHERE ticker IN ({placeholders}) AND exchange = 'NSE'
-            """, invalid_tickers)
-
+            db.execute(
+                f"UPDATE tickers SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP "
+                f"WHERE ticker IN ({placeholders}) AND exchange = 'NSE'",
+                invalid_tickers,
+            )
             print(f"  Marked {len(invalid_tickers)} invalid stocks as inactive")
 
-        # Ensure valid stocks are marked as active
         if valid_stocks:
             placeholders = ','.join(['%s'] * len(valid_stocks))
-            cur.execute(f"""
-                UPDATE tickers
-                SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP
-                WHERE ticker IN ({placeholders}) AND exchange = 'NSE'
-            """, valid_stocks)
-
+            db.execute(
+                f"UPDATE tickers SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP "
+                f"WHERE ticker IN ({placeholders}) AND exchange = 'NSE'",
+                valid_stocks,
+            )
             print(f"  Ensured {len(valid_stocks)} valid stocks are marked active")
 
-        # Add cleanup summary to a log table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS universe_cleanup_log (
-                id SERIAL PRIMARY KEY,
-                exchange VARCHAR(10),
-                total_processed INTEGER,
-                valid_count INTEGER,
-                invalid_count INTEGER,
-                cleaned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                notes TEXT
-            )
-        """)
-
-        cur.execute("""
-            INSERT INTO universe_cleanup_log (exchange, total_processed, valid_count, invalid_count, notes)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            'NSE',
-            total_processed,
-            len(valid_stocks),
-            len(invalid_stocks),
-            f'Cleaned NSE universe. Invalid stocks: {len(invalid_stocks[:5])}...'
-        ))
-
-        conn.commit()
-        cur.close()
-        conn.close()
+        db.execute_file('schema/universe_cleanup_log.sql')
+        db.execute_file(
+            'etl/universe_cleanup_log_insert.sql',
+            (
+                'NSE',
+                total_processed,
+                len(valid_stocks),
+                len(invalid_stocks),
+                f'Cleaned NSE universe. Invalid stocks: {len(invalid_stocks[:5])}...',
+            ),
+        )
 
         print("✅ Database updated successfully")
 
