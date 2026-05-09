@@ -15,9 +15,9 @@ NOTE: IBKR processing is deferred until after manual filtering by user.
 """
 
 import sys
-import psycopg2
-from config import DB_CONFIG
-import importlib
+
+from db import get_db
+from scripts.etl.finance_db.flatten_fd_nse import flatten_fd_data, audit_fd_flattened
 
 # ---- CONFIGURATION ----
 MARKET_CAP_THRESHOLD = 1_000_000_000  # Example: Only tickers with >$1B market cap
@@ -26,48 +26,38 @@ WRITE_FILTERED_TICKERS_TO = "data_files/processed/csv/filtered_tickers.csv"  # S
 # ---- 1. Flatten FinanceDatabase Data ----
 def run_flatten_fd():
     print("[1/4] STEP 1: Flatten FD raw to stock_fundamentals_fd via flatten_fd_nse.py ...")
-    flatten_module = importlib.import_module("flatten_fd_nse")
-    flatten_module.flatten_fd_data()
+    flatten_fd_data()
 
 # ---- 2. Export All Tickers for Manual Filtering ----
 def export_all_tickers_for_filtering(output_csv="data_files/processed/csv/all_nse_tickers.csv"):
     print("[2/4] STEP 2: Export all NSE tickers for manual filtering...")
-    conn = psycopg2.connect(
-        dbname=DB_CONFIG["db_name"],
-        user=DB_CONFIG["db_user"],
-        password=DB_CONFIG["db_pass"],
-        host=DB_CONFIG["db_host"],
-        port=DB_CONFIG["db_port"]
-    )
-    cur = conn.cursor()
+    db = get_db()
 
     # Get all tickers with their market cap categories
-    cur.execute("""
+    rows = db.query("""
         SELECT ticker, company_name, market_cap_category, sector, industry, country, currency
         FROM stock_fundamentals_fd
         ORDER BY ticker
     """)
-    rows = cur.fetchall()
 
     all_tickers = [ticker for ticker, _, _, _, _, _, _ in rows]
     print(f"Total NSE tickers available: {len(all_tickers)}")
 
     # Show market cap category distribution
-    cur.execute("""
+    mcap_dist = db.query("""
         SELECT market_cap_category, COUNT(*) as count
         FROM stock_fundamentals_fd
         WHERE market_cap_category IS NOT NULL
         GROUP BY market_cap_category
         ORDER BY count DESC
     """)
-    mcap_dist = cur.fetchall()
 
-    print("📈 Market Cap Category Distribution:")
+    print("Market Cap Category Distribution:")
     for category, cnt in mcap_dist:
         print(f"   {category}: {cnt} companies")
 
     # Show sample records
-    print("\n📋 Sample records:")
+    print("\nSample records:")
     for row in rows[:10]:  # Show first 10
         ticker, name, mcap_cat, sector, industry, country, currency = row
         print(f"   {ticker:<15} {name[:25]:<25} {mcap_cat or 'N/A':<12} {sector or 'N/A':<15} {currency or 'N/A'}")
@@ -82,15 +72,13 @@ def export_all_tickers_for_filtering(output_csv="data_files/processed/csv/all_ns
             for ticker, name, mcap_cat, sector, industry, country, currency in rows:
                 f.write(f"{ticker},{name},{mcap_cat},{sector},{industry},{country},{currency}\n")
 
-    cur.close()
-    conn.close()
     return all_tickers
 
 # ---- 3. Placeholder for IBKR Processing ----
 def run_manual_ibkr_processing():
     """Placeholder for manual IBKR processing after user filtering."""
     print("[3/4] STEP 3: IBKR processing (manual after user filtering)...")
-    print("   📝 User will manually:")
+    print("   User will manually:")
     print("      1. Review data_files/processed/csv/all_nse_tickers.csv")
     print("      2. Convert market caps to USD if needed")
     print("      3. Apply filtering criteria")
@@ -100,9 +88,7 @@ def run_manual_ibkr_processing():
 # ---- 4. Audit FD Table ----
 def run_audit():
     print("[4/4] STEP 4: Audit stock_fundamentals_fd table...")
-    # FD audit
-    fd_flatten_module = importlib.import_module("flatten_fd_nse")
-    fd_flatten_module.audit_fd_flattened()
+    audit_fd_flattened()
 
 if __name__ == "__main__":
     # Step 1: Flatten FD data into structured table
@@ -117,9 +103,9 @@ if __name__ == "__main__":
     # Step 4: Audit FD table
     run_audit()
 
-    print("\n🎉 Pipeline preparation complete!")
-    print(f"   📊 Available NSE stocks: {len(all_tickers)}")
-    print("   📁 FD data in: stock_fundamentals_fd")
-    print("   📄 Exported to: data_files/processed/csv/all_nse_tickers.csv")
-    print("   📊 Run: python analyze_nse_market_caps.py (to analyze market cap categories)")
-    print("   👤 Next: Manually filter tickers, then run IBKR processing")
+    print("\nPipeline preparation complete.")
+    print(f"   Available NSE stocks: {len(all_tickers)}")
+    print("   FD data in: stock_fundamentals_fd")
+    print("   Exported to: data_files/processed/csv/all_nse_tickers.csv")
+    print("   Run: python analyze_nse_market_caps.py (to analyze market cap categories)")
+    print("   Next: Manually filter tickers, then run IBKR processing")
