@@ -94,7 +94,39 @@ results = db.query("SELECT ticker, close FROM prices_daily WHERE price_date = %s
 1. Add a named method to the `Database` class in `db.py` (or reuse `query`/`execute` inline for one-off ETL).
 2. For multi-step data transformations or aggregations, prefer a SQL view or function over Python loops.
 3. Never duplicate an existing query — check `db.py` first.
-4. Tiny one-table helper queries stay inline. Multi-table joins, CTEs, window functions, ETL transformations, analytical queries, and schema DDL live under `sql/` (`sql/etl/`, `sql/schema/`, `sql/analytics/`) and load via `db.query_file` / `db.execute_file` / `db.execute_values_file`.
+4. Tiny one-table helper queries stay inline. Multi-table joins, CTEs, window functions, ETL transformations, analytical queries, and schema DDL live under `sql/` (`sql/etl/`, `sql/schema/`, `sql/analytics/`, `sql/admin/`) and load via `db.query_file` / `db.execute_file` / `db.execute_values_file`.
+
+### SQL externalization (mandatory for destructive verbs)
+
+Destructive SQL — `TRUNCATE TABLE`, `DROP TABLE`, `DELETE FROM`, `ALTER TABLE`, `CREATE TABLE`, `CREATE INDEX`, `DROP INDEX` — must live in `sql/`, never embedded in `.py`. The only exception is `db.py`, the canonical DB interface. The pre-commit guard at `scripts/hooks/sql_guard.py` enforces this; install the hook with `pip install pre-commit && pre-commit install`.
+
+Why: a TRUNCATE embedded at module level wiped two production tables on a routine `import` last cycle (`scripts/utils/reset_db_schema.py`, since hardened). Externalizing destructive verbs out of importable Python eliminates that class of footgun.
+
+`sql/` subdirectory roles:
+
+| Path | Use |
+|---|---|
+| `sql/schema/` | DDL (`CREATE TABLE IF NOT EXISTS`) — idempotent, the source of truth for structure |
+| `sql/etl/` | DML for active ETL writers — INSERTs, UPDATEs, DELETEs, UPSERTs |
+| `sql/analytics/` | Read-only screening / export / window-function SELECTs |
+| `sql/admin/` | Destructive recovery operations (TRUNCATE, manual DROPs); always gated by typed-confirmation in the caller |
+
+Caveat: psycopg2 treats unmatched `%` in SQL as format tokens when parameters are passed. Strip `%` from comments (use prose like "ending in .NS") or escape as `%%`.
+
+### Conventions for new long-lived scripts
+
+- **No raw `psycopg2.connect()`** outside `db.py`. Always `from db import get_db`.
+- **No embedded destructive SQL** (see above). Read-only SELECTs that are short and inline are tolerated; multi-line or complex SELECTs go to `sql/analytics/`.
+- **No side effects on import.** All execution must be guarded by `if __name__ == "__main__":`. Importing a script must never touch the database.
+- **Destructive operations** must require typed confirmation (see `scripts/utils/reset_db_schema.py` for the pattern: a `CONFIRMATION_PHRASE` constant, an `input()` check, and ASCII-only output to avoid Windows codepage failures masking errors).
+- **Single-responsibility functions** for new long-lived ETL/analytics scripts: split DB-touching, transform, and I/O into separate functions so each can be unit-tested with a mock `db`. (Short-lived pilots and one-off scripts may stay flat.)
+
+### Retired or vestigial scripts
+
+Some scripts predate the SQL-externalization discipline and remain in the tree as historical artifacts. They will trip the pre-commit guard if anyone edits them — the right response is to either externalize the SQL (and migrate to `db.py`) or delete the script. Do not bypass the guard. Currently in this state:
+
+- `scripts/utils/create_market_data_table.py` — one-shot migration, already executed.
+- `scripts/etl/ibkr/test_raw_ingestion.py` — experimental; schemas drift from production.
 
 ### Preferred pattern for new data operations
 

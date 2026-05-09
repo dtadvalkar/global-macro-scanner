@@ -13,10 +13,7 @@ def truncate_tables() -> None:
     """Truncate `tickers` and `stock_fundamentals`. Caller has already confirmed intent."""
     db = get_db()
     print("Truncating 'tickers' and 'stock_fundamentals'...")
-    with db.get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("TRUNCATE TABLE tickers, stock_fundamentals RESTART IDENTITY CASCADE")
-        conn.commit()
+    db.execute_file('admin/reset_truncate_tickers_and_fundamentals.sql')
     print("Done. Both tables are now empty.")
 
 

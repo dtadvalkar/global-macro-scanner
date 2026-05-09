@@ -1,0 +1,17 @@
+# Pre-commit hooks for the Global Market Scanner repo.
+#
+# Install once:  pip install pre-commit && pre-commit install
+# Run manually:  pre-commit run --all-files
+
+repos:
+  - repo: local
+    hooks:
+      - id: sql-guard
+        name: Block destructive SQL embedded in Python
+        entry: python scripts/hooks/sql_guard.py
+        language: system
+        types: [python]
+        pass_filenames: true
+        description: >
+          Blocks TRUNCATE/DROP/DELETE/ALTER/CREATE TABLE/INDEX in .py outside
+          db.py and sql/. See DEVELOPMENT.md "SQL externalization".

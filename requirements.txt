@@ -26,6 +26,7 @@ python-dotenv==1.0.0
 # Development/Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
+pre-commit==4.6.0  # runs scripts/hooks/sql_guard.py; activate via `pre-commit install`
 
 # Optional: For enhanced data analysis
 matplotlib==3.8.2

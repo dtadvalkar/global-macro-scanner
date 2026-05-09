@@ -283,8 +283,8 @@ def flatten_final(exchange=None, replace=False):
             raise ValueError(f"No yf_suffix for exchange {exchange}")
         like_pat = '%' + suffix
         if replace:
-            deleted = db.execute(
-                "DELETE FROM stock_fundamentals WHERE ticker LIKE %s",
+            deleted = db.execute_file(
+                'etl/stock_fundamentals_delete_by_suffix.sql',
                 (like_pat,),
             )
             print(f"[DB] --replace: deleted {deleted} existing {exchange} ({suffix}) rows")
