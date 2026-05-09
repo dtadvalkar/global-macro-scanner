@@ -31,6 +31,16 @@ data_files/processed/csv/
 # Local
 .local/
 
+# Spark local-mode artifacts (dropped in CWD on every SparkSession run)
+metastore_db/
+spark-warehouse/
+derby.log
+_SUCCESS
+*.crc
+
+# Spark pilot inputs/outputs (reproducible from Postgres; not source)
+data_files/spark/
+
 # OS
 .DS_Store
 Thumbs.db
