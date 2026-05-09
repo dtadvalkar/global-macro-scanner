@@ -445,26 +445,12 @@ class IBKRProvider(BaseProvider):
         if not tickers:
             return results
 
-        # Query current_market_data for these tickers
-        placeholders = ','.join(['%s'] * len(tickers))
-        query = f"""
-            SELECT
-                ticker,
-                last_price,
-                close_price,
-                open_price,
-                high_price,
-                low_price,
-                volume,
-                last_updated
-            FROM current_market_data
-            WHERE ticker IN ({placeholders})
-            ORDER BY ticker
-        """
-
         try:
             from screening.screening_utils import should_pass_screening
-            market_data_rows = self.db.query(query, tuple(tickers))
+            market_data_rows = self.db.query_file(
+                'analytics/screen_stored_market_data.sql',
+                (list(tickers),),
+            )
 
             for row in market_data_rows:
                 ticker, last_price, close_price, open_price, high_price, low_price, volume, last_updated = row
