@@ -76,7 +76,7 @@ def get_universe(markets):
 
                 if tickers:
                     db.save_tickers(db_key, tickers)
-                    print(f"  ✅ Seeded {len(tickers)} tickers for {db_key}")
+                    print(f"  [ok] Seeded {len(tickers)} tickers for {db_key}")
                 else:
                     print(f"  Warning: No tickers found for {db_key} in FinanceDatabase.")
 
@@ -87,7 +87,7 @@ def get_universe(markets):
         elif fd_key is None:
             actionable_count = len(db.get_actionable_tickers(db_key))
             if actionable_count == 0:
-                print(f"  ℹ️  {db_key}: no tickers seeded yet — run scripts/etl/ibkr/seed_exchange_tickers.py first.")
+                print(f"  [info] {db_key}: no tickers seeded yet -- run scripts/etl/ibkr/seed_exchange_tickers.py first.")
 
         # 2. Load Actionable Tickers (Active + Parole)
         actionable = db.get_actionable_tickers(db_key)
