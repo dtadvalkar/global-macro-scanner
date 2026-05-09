@@ -24,10 +24,6 @@ check-progress:
 scan-test:
 	$(PYTHON) scripts/testing/test_offline_screener.py
 
-# YFinance collection smoke test (internet required)
-check-yf:
-	$(PYTHON) scripts/testing/test_yfinance_collection.py
-
 # Full pipeline in test mode (requires TWS)
 run-test:
 	$(PYTHON) main.py --exchanges NSE --mode test
