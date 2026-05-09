@@ -31,18 +31,34 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-WHITELIST = {"db.py"}
+WHITELIST = {
+    "db.py",
+    # reset_db_schema.py is the canonical typed-confirmation gate for the
+    # TRUNCATE in sql/admin/. Its CONFIRMATION_PHRASE and user prompts have
+    # to mention TRUNCATE by name -- that is the gate -- but the actual SQL
+    # statement lives in sql/admin/, not in this Python file.
+    "scripts/utils/reset_db_schema.py",
+}
 
 EXCLUDE_DIRS = {".venv", "venv", "env", ".git", "__pycache__", "sql", "data_files"}
 
 DESTRUCTIVE_PATTERNS = [
-    re.compile(r"\bTRUNCATE\s+TABLE\b", re.IGNORECASE),
-    re.compile(r"\bDROP\s+TABLE\b",     re.IGNORECASE),
-    re.compile(r"\bDELETE\s+FROM\b",    re.IGNORECASE),
-    re.compile(r"\bALTER\s+TABLE\b",    re.IGNORECASE),
-    re.compile(r"\bCREATE\s+TABLE\b",   re.IGNORECASE),
-    re.compile(r"\bCREATE\s+INDEX\b",   re.IGNORECASE),
-    re.compile(r"\bDROP\s+INDEX\b",     re.IGNORECASE),
+    # TABLE keyword is optional in Postgres for TRUNCATE; require a following
+    # identifier so prose like "will TRUNCATE the table" or "(TRUNCATE)" does
+    # not self-trip in scripts that have to describe the operation.
+    re.compile(r"\bTRUNCATE\s+(?:TABLE\s+)?\w",             re.IGNORECASE),
+    re.compile(r"\bDROP\s+TABLE\b",                         re.IGNORECASE),
+    re.compile(r"\bDELETE\s+FROM\b",                        re.IGNORECASE),
+    re.compile(r"\bALTER\s+TABLE\b",                        re.IGNORECASE),
+    re.compile(r"\bCREATE\s+TABLE\b",                       re.IGNORECASE),
+    # UNIQUE / CONCURRENTLY are optional modifiers; keep them in scope.
+    re.compile(r"\bCREATE\s+(?:UNIQUE\s+)?INDEX\b",         re.IGNORECASE),
+    re.compile(r"\bDROP\s+INDEX\b",                         re.IGNORECASE),
+    re.compile(r"\bALTER\s+INDEX\b",                        re.IGNORECASE),
+    re.compile(r"\bREINDEX\b",                              re.IGNORECASE),
+    # Views and schemas are equally destructive.
+    re.compile(r"\bDROP\s+(?:MATERIALIZED\s+)?VIEW\b",      re.IGNORECASE),
+    re.compile(r"\bDROP\s+SCHEMA\b",                        re.IGNORECASE),
 ]
 
 
