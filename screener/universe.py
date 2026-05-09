@@ -51,6 +51,8 @@ def get_universe(markets):
 
         if fd_key is not None and not db.is_market_fresh(db_key, min_count=min_threshold):
             print(f"Refreshing {db_key} universe from FinanceDatabase...")
+            tickers = []
+            fd_succeeded = False
             try:
                 equities = fd.Equities()
                 selection = equities.search(exchange=fd_key)
@@ -70,19 +72,21 @@ def get_universe(markets):
                 }.get(db_key, '')
 
                 tickers = [f"{s}{suffix}" if not s.endswith(suffix) else s for s in selection.index]
-
-                if config.TEST_MODE and m_key == 'nse':
-                    tickers = tickers[:CRITERIA.get('nse_top_limit', 200)]
-
-                if tickers:
-                    db.save_tickers(db_key, tickers)
-                    print(f"  [ok] Seeded {len(tickers)} tickers for {db_key}")
-                else:
-                    print(f"  Warning: No tickers found for {db_key} in FinanceDatabase.")
-
+                fd_succeeded = True
             except Exception as e:
+                # Only FD-side failures are non-fatal: caller falls back to whatever
+                # actionable tickers are already in DB. DB writes and output-encoding
+                # errors run outside this try and propagate normally.
                 print(f"Warning: {db_key} FD load failed: {e}")
-                # If FD fails, we might still have old actionable tickers in DB, so we proceed.
+
+            if config.TEST_MODE and m_key == 'nse':
+                tickers = tickers[:CRITERIA.get('nse_top_limit', 200)]
+
+            if tickers:
+                db.save_tickers(db_key, tickers)
+                print(f"  [ok] Seeded {len(tickers)} tickers for {db_key}")
+            elif fd_succeeded:
+                print(f"  Warning: No tickers found for {db_key} in FinanceDatabase.")
 
         elif fd_key is None:
             actionable_count = len(db.get_actionable_tickers(db_key))
