@@ -36,12 +36,12 @@ def create_current_market_data_table():
     """Create the current_market_data table if it doesn't exist."""
     db = get_db()
     db.create_tables()
-    print("✅ current_market_data table ready")
+    print("[ok] current_market_data table ready")
 
 def flatten_ibkr_market_data():
     """Extract market data from ibkr_market_data table and store in current_market_data."""
 
-    print("🔄 Starting IBKR market data flattening...")
+    print("[run] Starting IBKR market data flattening...")
     print("="*50)
 
     db = get_db()
@@ -50,7 +50,7 @@ def flatten_ibkr_market_data():
     result = db.query("SELECT MAX(last_updated) FROM current_market_data", fetch='one')
     watermark = result[0] if result and result[0] else datetime(1970, 1, 1)
     
-    print(f"🕒 Watermark (last processed): {watermark} (Type: {type(watermark)})")
+    print(f"[time] Watermark (last processed): {watermark} (Type: {type(watermark)})")
 
     # 2. Query DELTA from ibkr_market_data (sql/etl/ibkr_market_data_delta.sql)
     rows = db.query_file('etl/ibkr_market_data_delta.sql', (watermark,))
@@ -63,10 +63,10 @@ def flatten_ibkr_market_data():
         print(f"  [DEBUG] Max last_updated in ibkr_market_data: {sample_time[0]}")
 
     total_rows = len(rows) if rows else 0
-    print(f"📊 Found {total_rows} new records in IBKR market data")
+    print(f"[stats] Found {total_rows} new records in IBKR market data")
 
     if total_rows == 0:
-        print("✅ No new market data to flatten. System is up to date.")
+        print("[ok] No new market data to flatten. System is up to date.")
         return
 
     # Process each ticker
@@ -96,12 +96,12 @@ def flatten_ibkr_market_data():
             processed_tickers.add(ticker)
 
         except Exception as e:
-            print(f"  ❌ Error processing {ticker}: {e}")
+            print(f"  [fail] Error processing {ticker}: {e}")
             continue
 
     # 3. Upsert flattened data (sql/etl/current_market_data_upsert.sql)
     if flattened_data:
-        print(f"\n💾 Upserting {len(flattened_data)} records into current_market_data...")
+        print(f"\n[db] Upserting {len(flattened_data)} records into current_market_data...")
 
         batch = [
             (d['ticker'], d['last_price'], d['close_price'], d['open_price'],
@@ -110,16 +110,16 @@ def flatten_ibkr_market_data():
         ]
         db.execute_values_file('etl/current_market_data_upsert.sql', batch)
 
-        print(f"✅ Successfully flattened/updated {len(flattened_data)} records")
+        print(f"[ok] Successfully flattened/updated {len(flattened_data)} records")
 
         # Show summary of the state
         result = db.query("SELECT COUNT(*) FROM current_market_data", fetch='one')
         print(f"\nSummary: current_market_data now has {result[0]} total records")
     else:
-        print("❌ No valid data to insert")
+        print("[fail] No valid data to insert")
 
     print("\n" + "="*50)
-    print("🎯 IBKR market data flattening complete!")
+    print("[done] IBKR market data flattening complete!")
     print("="*50)
 
 def extract_numeric(value):
