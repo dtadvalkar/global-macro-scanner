@@ -15,3 +15,14 @@ repos:
         description: >
           Blocks TRUNCATE/DROP/DELETE/ALTER/CREATE TABLE/INDEX in .py outside
           db.py and sql/. See DEVELOPMENT.md "SQL externalization".
+      - id: import-safety
+        name: Block destructive db.py calls at module scope
+        entry: python scripts/hooks/import_safety.py
+        language: system
+        types: [python]
+        pass_filenames: true
+        description: >
+          Blocks db.execute_file / execute_values_file / truncate_table at
+          module scope. These fire on import — the same class of bug that
+          wiped tickers + stock_fundamentals on 2026-04-30. Wrap calls in
+          a function and gate behind `if __name__ == "__main__":`.

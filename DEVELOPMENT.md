@@ -98,9 +98,9 @@ results = db.query("SELECT ticker, close FROM prices_daily WHERE price_date = %s
 
 ### SQL externalization (mandatory for destructive verbs)
 
-Destructive SQL — `TRUNCATE TABLE`, `DROP TABLE`, `DELETE FROM`, `ALTER TABLE`, `CREATE TABLE`, `CREATE INDEX`, `DROP INDEX` — must live in `sql/`, never embedded in `.py`. The only exception is `db.py`, the canonical DB interface. The pre-commit guard at `scripts/hooks/sql_guard.py` enforces this; install the hook with `pip install pre-commit && pre-commit install`.
+Destructive SQL — `TRUNCATE TABLE`, `DROP TABLE`, `DELETE FROM`, `ALTER TABLE`, `CREATE TABLE`, `CREATE INDEX`, `DROP INDEX` — must live in `sql/`, never embedded in `.py`. The only exception is `db.py`, the canonical DB interface. Two pre-commit guards enforce this: `scripts/hooks/sql_guard.py` blocks destructive SQL strings in `.py`, and `scripts/hooks/import_safety.py` blocks `db.execute_file` / `execute_values_file` / `truncate_table` calls at module scope (the same SQL routed via externalized files). Install both with `pip install pre-commit && pre-commit install`.
 
-Why: a TRUNCATE embedded at module level wiped two production tables on a routine `import` last cycle (`scripts/utils/reset_db_schema.py`, since hardened). Externalizing destructive verbs out of importable Python eliminates that class of footgun.
+Why: a TRUNCATE embedded at module level wiped two production tables on a routine `import` last cycle (`scripts/utils/reset_db_schema.py`, since hardened). Externalizing destructive verbs out of importable Python eliminates that class of footgun; the import-safety hook closes the residual gap where the SQL has been externalized but the *call* still fires on import.
 
 `sql/` subdirectory roles:
 
@@ -117,7 +117,7 @@ Caveat: psycopg2 treats unmatched `%` in SQL as format tokens when parameters ar
 
 - **No raw `psycopg2.connect()`** outside `db.py`. Always `from db import get_db`.
 - **No embedded destructive SQL** (see above). Read-only SELECTs that are short and inline are tolerated; multi-line or complex SELECTs go to `sql/analytics/`.
-- **No side effects on import.** All execution must be guarded by `if __name__ == "__main__":`. Importing a script must never touch the database.
+- **No side effects on import.** All execution must be guarded by `if __name__ == "__main__":`. Importing a script must never touch the database. Enforced by `scripts/hooks/import_safety.py`.
 - **Destructive operations** must require typed confirmation (see `scripts/utils/reset_db_schema.py` for the pattern: a `CONFIRMATION_PHRASE` constant, an `input()` check, and ASCII-only output to avoid Windows codepage failures masking errors).
 - **Single-responsibility functions** for new long-lived ETL/analytics scripts: split DB-touching, transform, and I/O into separate functions so each can be unit-tested with a mock `db`. (Short-lived pilots and one-off scripts may stay flat.)
 
