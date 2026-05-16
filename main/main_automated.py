@@ -47,7 +47,7 @@ def scan_markets(markets_config=None):
         print(f"Initial universe: {len(universe)} stocks")
 
         # Screen universe
-        catches = screen_universe(universe, CRITERIA)
+        catches = screen_universe(universe, CRITERIA, markets_to_scan)
 
         # Log catches
         log_catches(catches)
