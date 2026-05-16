@@ -164,9 +164,32 @@ Pilot is complete for the (a) offline analytics use case. Suggested follow-ups, 
 
 ## Notes for the next agent
 
-- Two environment requirements: `JAVA_HOME` (Temurin 17) and `HADOOP_HOME=C:\hadoop`. The Temurin installer set `JAVA_HOME` at machine scope, so new shells will see it; `HADOOP_HOME` is currently shell-local — promote to a user/machine env var if you want it persistent.
+- Three environment requirements per shell: `JAVA_HOME` (Temurin 17, machine-scope from the installer), `HADOOP_HOME=C:\hadoop` (shell-local), **and `%HADOOP_HOME%\bin` on `PATH`** so the JVM can locate `hadoop.dll`. Re-verified 2026-05-16: setting only `HADOOP_HOME` (without the PATH prepend) makes Phase 3 fail at the first Parquet write with `UnsatisfiedLinkError: NativeIO$Windows.access0`. The plan in `spark_pilot_plan.md` Phase 1 already calls out the PATH requirement; promoting these to machine env vars (`HADOOP_HOME` + appended PATH) avoids the per-shell setup.
 - Decimal precision in Parquet is `decimal(20,15)` (pyarrow's choice). Don't override this on read.
 - The chunked export uses `LIMIT/OFFSET` ordered by `(ticker, price_date)`. For tables larger than ~10M rows, switch to keyset pagination on the PK to avoid the OFFSET cost.
 - Production `days_since_low` uses `datetime.now()` against live yfinance. Any future "Spark replaces production" scenario must address that as-of-date reproducibility question — historical Postgres data + a pinned as-of date will not match a live `datetime.now()` evaluation.
 - The recovery plan (`sql_externalization_recovery_plan.md`) remains deferred. The Spark pilot did not need `tickers` or `stock_fundamentals`.
 - `.claude/settings.local.json` modified by harness state, exclude from any commit.
+
+## Sample-pipeline re-verification — 2026-05-16
+
+Re-ran the 4-script sample path end-to-end to confirm the pilot still works after the recent provider-routing / IDX/SET changes (which were independent of Spark but bumped Python deps).
+
+```text
+$env:HADOOP_HOME='C:\hadoop'; $env:PATH = "$env:HADOOP_HOME\bin;$env:PATH"; $env:PYTHONPATH='.'
+.\.venv\Scripts\python.exe scripts\spark\01_export_sample.py
+# Selected 50 NSE tickers; exported 12,398 rows -> data_files\spark\prices_daily_sample.parquet (522.9 KB)
+
+.\.venv\Scripts\python.exe scripts\spark\02_features_spark.py
+# Schema OK (string/date/decimal(20,15)/long); Spark window transform wrote 50 feature rows.
+
+.\.venv\Scripts\python.exe scripts\spark\03_features_pandas.py
+# Baseline computed; 50 feature rows.
+
+.\.venv\Scripts\python.exe scripts\spark\04_compare.py
+# PASS: 50/50 low_52w + low_date + days_since_low matches; exit 0.
+```
+
+Environment confirmed: Java `17.0.18+8` 64-Bit Server VM (Temurin), pyspark `3.5.8`, pyarrow `24.0.0`, `db.py health` -> `issues: []`. Phase 5 scale test (5.6M rows / ~5 min) was **not** rerun in this session — the prior recorded result (`Wall time 319.4s`, 50/50 per-suffix reconciliation) still stands.
+
+The first run today failed with `UnsatisfiedLinkError: NativeIO$Windows.access0` because `%HADOOP_HOME%\bin` was not on `PATH`; resolved by prepending and rerunning. The Notes-for-the-next-agent section above now records this explicitly.
