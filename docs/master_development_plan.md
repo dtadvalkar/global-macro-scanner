@@ -100,11 +100,10 @@ Technical indicators and pattern recognition implemented in `screening/screening
 - Double bottom pattern detection, volume spike confirmation, breakout detection
 
 ### ✅ 2. Performance Optimizations
-`OptimizedYFinanceProvider` in `data/providers_optimized.py`:
-- Intelligent caching (1-hour TTL)
-- Parallel processing (5 concurrent requests, semaphore-controlled)
-- Adaptive rate limiting (0.8 req/sec)
-- Early filtering to reduce API calls
+`OptimizedYFinanceProvider` in `data/providers.py`:
+- Single bulk `yf.download(...)` per scan — no per-ticker loops (rate-limit safe)
+- Market cap from cached `stock_fundamentals` (yf.download omits `info`)
+- Failed-ticker cache marks persistently empty symbols INACTIVE
 
 ### ✅ 3. Automated Scheduling System
 Implemented. Primary files: `scheduler/market_scheduler.py`, `main/main_automated.py`.

@@ -15,188 +15,154 @@ class BaseProvider:
         raise NotImplementedError
 
 class OptimizedYFinanceProvider(BaseProvider):
-    """
-    Optimized YFinance provider with advanced performance features:
-    - Intelligent caching with TTL
-    - Parallel processing with concurrency control
-    - Early filtering to reduce API calls
-    - Adaptive rate limiting
-    - Batch processing with error recovery
+    """YFinance provider that fetches OHLCV via a single bulk `yf.download`.
+
+    Per-ticker `yf.Ticker(...).history()` loops cause rate-limit failures on
+    large universes (`feedback_data_source_priority`). The bulk path mirrors
+    the ETL pattern in `scripts/etl/yfinance/collect_daily_yfinance.py`.
+
+    Market cap is read from the `stock_fundamentals` cache, not from
+    `yf.Ticker.info` (which would force a per-ticker call back). Tickers
+    without cached fundamentals will fail the market-cap floor in
+    `should_pass_screening` — that is intentional. For YF-only markets
+    (IDX/SET) the upstream fix is to seed fundamentals separately.
     """
 
-    def __init__(self, requests_per_second: float = 0.8, max_concurrent: int = 5):
-        self.requests_per_second = requests_per_second
-        self.max_concurrent = max_concurrent
-        self.last_request_time = 0
+    def __init__(self):
         self.fundamentals_cache = FundamentalCacheManager(use_database=True)
         self.db = get_db()
-        self.failed_stocks_cache = {}  # Cache of stocks that consistently fail
+        self.failed_stocks_cache = {}
 
-    def _rate_limit_wait(self):
-        """Simple rate limiting"""
-        import time
-        current_time = time.time()
-        time_since_last = current_time - self.last_request_time
-        min_interval = 1.0 / self.requests_per_second
+    def _extract_per_ticker(self, raw, ticker):
+        """Slice one ticker's OHLCV frame out of yf.download's multi-index."""
+        if isinstance(raw.columns, pd.MultiIndex):
+            top = raw.columns.get_level_values(0)
+            if ticker not in top:
+                return None
+            df = raw[ticker].dropna(how='all')
+            return df if not df.empty else None
+        # Single-ticker download collapses to a flat frame.
+        df = raw.dropna(how='all')
+        return df if not df.empty else None
 
-        if time_since_last < min_interval:
-            time.sleep(min_interval - time_since_last)
+    def _build_symbol_data(self, symbol, hist, criteria):
+        """Compute screening features from a per-ticker OHLCV frame."""
+        low_52w = hist['Low'].min()
+        current = hist['Close'].iloc[-1]
+        high_52w = hist['High'].max()
 
-        self.last_request_time = time.time()
+        current_vol = hist['Volume'].iloc[-1]
+        avg_vol_30d = (
+            hist['Volume'].tail(30).mean()
+            if len(hist) >= 30 else hist['Volume'].mean()
+        )
+        rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
 
+        # Market cap from cached fundamentals — yf.download omits info.
+        fundamentals = self.fundamentals_cache.get_fundamentals(symbol) or {}
+        usd_mcap_full = usd_market_cap(symbol, fundamentals.get('market_cap_usd', 0) or 0)
 
-    async def _process_symbol_async(self, symbol, criteria, semaphore):
-        """Process a single symbol with technical analysis"""
-        async with semaphore:
-            try:
-                self._rate_limit_wait()
+        symbol_data = {
+            'symbol': symbol,
+            'price': current,
+            'low_52w': low_52w,
+            'high_52w': high_52w,
+            'usd_mcap': usd_mcap_full / 1e9,
+            'rvol': rvol,
+            'volume': current_vol,
+            'price_history': hist['Close'] if criteria.get('pattern_enabled', False) else None,
+            'avg_volume_20d': (
+                hist['Volume'].tail(20).mean() if len(hist) >= 20 else current_vol
+            ),
+            'time': datetime.now(),
+        }
 
-                stock = yf.Ticker(symbol)
-                hist = stock.history(period='1y')
+        low_series = hist['Low'].tail(252) if len(hist) >= 252 else hist['Low']
+        if len(low_series) > 0:
+            low_date = low_series.idxmin()
+            if hasattr(low_date, 'replace'):
+                symbol_data['days_since_low'] = (
+                    datetime.now() - low_date.replace(tzinfo=None)
+                ).days
 
-                # Check for invalid/empty data (delisted stocks, etc.)
-                if hist.empty or len(hist) <= criteria.get('min_history_days', 250):
-                    # Mark as failed stock to avoid repeated processing
-                    self.failed_stocks_cache[symbol] = self.failed_stocks_cache.get(symbol, 0) + 1
-                    return None
+        if criteria.get('rsi_enabled', False):
+            symbol_data['rsi'] = calculate_rsi(hist['Close'])
 
-                info = stock.info
+        if criteria.get('ma_enabled', False):
+            sma50 = calculate_sma(hist['Close'], 50)
+            sma200 = calculate_sma(hist['Close'], 200)
+            symbol_data['sma50'] = sma50
+            symbol_data['sma200'] = sma200
+            if sma50 and sma200:
+                symbol_data['price_vs_sma50_pct'] = current / sma50
+                symbol_data['sma50_vs_sma200_pct'] = sma50 / sma200
 
-                # Basic data extraction
-                low_52w = hist['Low'].min()
-                current = hist['Close'].iloc[-1]
-                high_52w = hist['High'].max()
+        if criteria.get('atr_enabled', False):
+            symbol_data['atr_pct'] = calculate_atr(
+                hist['High'], hist['Low'], hist['Close']
+            )
 
-                # Volume analysis
-                current_vol = hist['Volume'].iloc[-1]
-                avg_vol_30d = hist['Volume'].tail(30).mean() if len(hist) >= 30 else hist['Volume'].mean()
-                rvol = current_vol / avg_vol_30d if avg_vol_30d > 0 else 0
-
-                # Market cap conversion
-                usd_mcap = usd_market_cap(symbol, info.get('marketCap', 0))
-
-                # Prepare data for screening
-                symbol_data = {
-                    'symbol': symbol,
-                    'price': current,
-                    'low_52w': low_52w,
-                    'high_52w': high_52w,
-                    'usd_mcap': usd_mcap / 1e9,  # Convert to billions
-                    'rvol': rvol,
-                    'volume': current_vol,
-                    'price_history': hist['Close'] if criteria.get('pattern_enabled', False) else None,
-                    'avg_volume_20d': hist['Volume'].tail(20).mean() if len(hist) >= 20 else current_vol,
-                    'time': datetime.now()
-                }
-
-                # Calculate technical indicators if enabled
-                if criteria.get('rsi_enabled', False):
-                    symbol_data['rsi'] = calculate_rsi(hist['Close'])
-
-                if criteria.get('ma_enabled', False):
-                    symbol_data['sma50'] = calculate_sma(hist['Close'], 50)
-                    symbol_data['sma200'] = calculate_sma(hist['Close'], 200)
-                    if symbol_data['sma50'] and symbol_data['sma200']:
-                        symbol_data['price_vs_sma50_pct'] = current / symbol_data['sma50']
-                        symbol_data['sma50_vs_sma200_pct'] = symbol_data['sma50'] / symbol_data['sma200']
-
-                if criteria.get('atr_enabled', False):
-                    symbol_data['atr_pct'] = calculate_atr(hist['High'], hist['Low'], hist['Close'])
-
-                # Apply screening
-                if should_pass_screening(symbol_data, criteria):
-                    result = {
-                        'symbol': symbol,
-                        'price': current,
-                        'low_52w': low_52w,
-                        'usd_mcap': usd_mcap / 1e9,
-                        'pct_from_low': current / low_52w,
-                        'rvol': rvol,
-                        'volume': current_vol,
-                        'time': datetime.now()
-                    }
-
-                    # Add technical data if available
-                    for key in ['rsi', 'sma50', 'sma200', 'atr_pct']:
-                        if key in symbol_data:
-                            result[key] = symbol_data[key]
-
-                    return result
-
-            except Exception as e:
-                error_str = str(e).lower()
-                # Track failed stocks to avoid repeated processing
-                # Mark as persistent failure in DB if critical error
-                if any(keyword in error_str for keyword in ['delisted', 'not found', '404', 'no data found']):
-                    self.db.update_ticker_status(symbol, 'INACTIVE', f"YFinance Error: {str(e)[:50]}")
-                    self.failed_stocks_cache[symbol] = self.failed_stocks_cache.get(symbol, 0) + 1
-                    pass
-                else:
-                    # For other errors, track but still show warning
-                    self.failed_stocks_cache[symbol] = self.failed_stocks_cache.get(symbol, 0) + 1
-                    print(f"  Warning: {symbol} error (YFinance): {str(e)[:50]}")
-
-            return None
+        return symbol_data
 
     def get_market_data(self, tickers, criteria):
-        """Optimized processing with fundamental caching and early filtering"""
-        import asyncio
-        import time
+        """One bulk yf.download for the universe, then offline screening."""
+        print(f"Optimized YFinance: bulk download for {len(tickers)} stocks")
 
-        print(f"Optimized YFinance: Processing {len(tickers)} stocks with fundamental caching")
-
-        # Phase 1: Early filtering using cached fundamentals and failed stocks
-        viable_tickers = []
-        skipped_by_fundamentals = 0
-        skipped_by_failure_cache = 0
-
-        for ticker in tickers:
-            # First check if stock is known to fail (delisted, etc.)
-            if ticker in self.failed_stocks_cache:
-                fail_count = self.failed_stocks_cache[ticker]
-                if fail_count >= 3:  # Skip after 3 failures
-                    skipped_by_failure_cache += 1
-                    continue
-
-            # Then check fundamentals
-            # can_skip, reason = self.fundamentals_cache.can_skip_by_fundamentals(ticker, criteria)
-            # if can_skip:
-            #     print(f"Skipped {ticker}: {reason}")
-            #     skipped_by_fundamentals += 1
-            # else:
-            #     viable_tickers.append(ticker)
-            viable_tickers.append(ticker)
-
-        efficiency_msg = f" ({len(viable_tickers)}/{len(tickers)} viable, {skipped_by_fundamentals} fundamentals, {skipped_by_failure_cache} failed cache)"
-        print(f"Pre-filtering complete{efficiency_msg}")
-
-        if not viable_tickers:
+        viable = [
+            t for t in tickers
+            if self.failed_stocks_cache.get(t, 0) < 3
+        ]
+        skipped = len(tickers) - len(viable)
+        if skipped:
+            print(f"  Skipped {skipped} tickers in failed-cache.")
+        if not viable:
             return []
-
-        # Phase 2: Process viable tickers with parallel execution
-        async def process_viable():
-            semaphore = asyncio.Semaphore(self.max_concurrent)
-            tasks = [self._process_symbol_async(symbol, criteria, semaphore) for symbol in viable_tickers]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Filter out None results and exceptions
-            valid_results = []
-            for result in results:
-                if isinstance(result, Exception):
-                    continue
-                if result is not None:
-                    valid_results.append(result)
-
-            return valid_results
 
         try:
-            results = asyncio.run(process_viable())
-            print(f"Processed {len(results)} stocks")
-            return results
-
+            raw = yf.download(
+                tickers=" ".join(viable),
+                period='1y',
+                group_by='ticker',
+                auto_adjust=False,
+                threads=True,
+                progress=False,
+            )
         except Exception as e:
-            print(f"❌ Optimized YFinance error: {e}")
+            print(f"  YFinance bulk download failed: {str(e)[:120]}")
             return []
+
+        if raw.empty:
+            print("  YFinance bulk download returned empty.")
+            return []
+
+        min_history = criteria.get('min_history_days', 250)
+        results = []
+        for symbol in viable:
+            hist = self._extract_per_ticker(raw, symbol)
+            if hist is None or len(hist) <= min_history:
+                self.failed_stocks_cache[symbol] = (
+                    self.failed_stocks_cache.get(symbol, 0) + 1
+                )
+                # Mark persistently empty tickers as INACTIVE — they are most
+                # likely delisted or wrong-suffixed.
+                if self.failed_stocks_cache[symbol] >= 3:
+                    self.db.update_ticker_status(
+                        symbol, 'INACTIVE', 'YFinance: empty bulk download'
+                    )
+                continue
+
+            try:
+                symbol_data = self._build_symbol_data(symbol, hist, criteria)
+            except Exception as e:
+                print(f"  Warning: {symbol} feature build failed: {str(e)[:80]}")
+                continue
+
+            filtered = should_pass_screening(symbol_data, criteria)
+            if filtered:
+                results.append(filtered)
+
+        print(f"  Optimized YFinance: {len(results)} catches from {len(viable)} tickers")
+        return results
 
 class YFinanceProvider(BaseProvider):
     """
