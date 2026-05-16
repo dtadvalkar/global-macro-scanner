@@ -11,11 +11,20 @@ db = get_db()
 # tickers (see project_nse_universe_criterion memory). NSE itself is intentionally
 # NOT in this set — its pipeline seeds the full FD list into `tickers` and does
 # fundamentals-collection filtering downstream.
-CAP_FILTERED_EXCHANGES = {'SEHK', 'LSE', 'JSE', 'TADAWUL', 'ASX', 'SGX'}
+CAP_FILTERED_EXCHANGES = {'SEHK', 'LSE', 'JSE', 'TADAWUL', 'ASX', 'SGX', 'IDX', 'SET'}
 
 # FD 2.3.1 renamed market_cap_category -> market_cap.
 FD_CAP_COLUMN = 'market_cap'
 FD_ALLOWED_CAPS = {'Large Cap', 'Mid Cap', 'Small Cap'}
+
+# Exchanges where FD `country` alone matches cross-listings on other venues
+# (e.g. Indonesian / Thai shares listed on FRA / STU). For these we MUST
+# constrain by both country and exchange. Other exchanges use exchange-only
+# search because their FD exchange codes are unambiguous.
+FD_COUNTRY_FILTER = {
+    'IDX': 'Indonesia',
+    'SET': 'Thailand',
+}
 
 
 def get_universe(markets):
@@ -55,7 +64,11 @@ def get_universe(markets):
             fd_succeeded = False
             try:
                 equities = fd.Equities()
-                selection = equities.search(exchange=fd_key)
+                country = FD_COUNTRY_FILTER.get(db_key)
+                if country is not None:
+                    selection = equities.search(country=country, exchange=fd_key)
+                else:
+                    selection = equities.search(exchange=fd_key)
 
                 # Apply the Large+Mid+Small cap filter for exchanges that need parity
                 # with the NSE fundamentals criterion.

@@ -26,8 +26,8 @@ MARKETS = {
     'smart':   False,  # US SMART/NYSE        [IBKR paid] — Error 162 confirmed 2026-04-22
 
     # YFinance-Only Markets (IBKR not supported)
-    'idx':     True,   # Indonesia IDX (.JK) [YFINANCE]
-    'set':     True,   # Thailand SET  (.BK) [YFINANCE]
+    'idx':     True,   # Indonesia IDX (.JK) [YFINANCE] — enabled 2026-05-16 after Phase 4 smoke (149 tickers, exit 0)
+    'set':     True,   # Thailand SET  (.BK) [YFINANCE] — enabled 2026-05-16 after Phase 4 smoke (325 tickers, exit 0)
     'bovespa': False,  # Brazil B3     (.SA) [YFINANCE] — pending ticker universe build
     'kse':     False,  # Korea KOSPI   (.KS) [YFINANCE] — pending ticker universe build
     'twse':    False,  # Taiwan        (.TW) [YFINANCE] — pending ticker universe build
@@ -53,8 +53,11 @@ MARKET_REGISTRY = {
     'SBF':     {'type': 'MAJOR',    'threshold_usd': 500_000_000, 'provider': 'IBKR_PAID', 'yf_suffix': '.PA', 'ibkr_currency': 'EUR'},
 
     # YFinance-Only
-    'IDX':     {'type': 'EMERGING', 'threshold_usd': 150_000_000, 'provider': 'YFINANCE',  'yf_suffix': '.JK'},
-    'SET':     {'type': 'EMERGING', 'threshold_usd': 150_000_000, 'provider': 'YFINANCE',  'yf_suffix': '.BK'},
+    # IDX/SET thresholds pinned from the seeded mkt_cap_usd distribution
+    # (Phase 3, 2026-05-16): each retains ~60% of the cap-filtered universe.
+    # IDR/THB are weak currencies; the EMERGING $150M default was too aggressive.
+    'IDX':     {'type': 'EMERGING', 'threshold_usd': 600_000_000, 'provider': 'YFINANCE',  'yf_suffix': '.JK'},
+    'SET':     {'type': 'EMERGING', 'threshold_usd': 450_000_000, 'provider': 'YFINANCE',  'yf_suffix': '.BK'},
     'BOVESPA': {'type': 'EMERGING', 'threshold_usd': 150_000_000, 'provider': 'YFINANCE',  'yf_suffix': '.SA'},
     'KSE':     {'type': 'MAJOR',    'threshold_usd': 500_000_000, 'provider': 'YFINANCE',  'yf_suffix': '.KS'},
     'TWSE':    {'type': 'MAJOR',    'threshold_usd': 500_000_000, 'provider': 'YFINANCE',  'yf_suffix': '.TW'},
