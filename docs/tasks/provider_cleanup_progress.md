@@ -309,3 +309,39 @@ Optional side-cleanup (independent of the commit set):
 - Keep `.claude/settings.local.json` out of any project commits unless explicitly requested.
 - The pre-existing `SyntaxWarning` in `migrate_to_ib_async.py` is noise on every Python invocation — if you commit, you'll see it in CI output too. Trivial fix (raw-string the regex) but explicitly out of scope here.
 - IDX/SET universe will still be skipped by the screener even with these toggles flipped back to `True` later, until `stock_fundamentals.market_cap_usd` is populated for `.JK` / `.BK` rows. The Phase 2 yahooquery script in the plan is the canonical fix.
+
+## Session closeout — 2026-05-16
+
+The provider cleanup + IDX/SET enablement change set is now committed. The "Next recommended step" and "Notes for the next agent" sections above were written before commit landed; they are kept for historical context but are superseded by this closeout.
+
+**Commits landed (newest first):**
+
+| Hash | Message | Files |
+|---|---|---|
+| `a15a6be` | `feat(markets): enable IDX and SET yfinance markets` | 8 — `config/markets.py`, `screener/universe.py`, `requirements.txt`, `scripts/etl/yahooquery/seed_idx_set_fundamentals.py`, `scripts/etl/yahooquery/schedule_monthly_idx_set_fundamentals.py`, `sql/etl/stock_fundamentals_yq_upsert.sql`, `docs/tasks/idx_set_enablement_plan.md`, `docs/tasks/provider_cleanup_progress.md` |
+| `431fd9e` | `refactor(providers): use bulk yfinance scan path` | 5 — `data/providers.py`, deletions of `data/providers_optimized.py` + `data/rate_limit_solutions.py` + `docs/yfinance_rate_limiting_guide.md`, `docs/master_development_plan.md` |
+| `61d64d3` | `feat(hooks): guard db SQL runners from import side effects` | 3 — `.pre-commit-config.yaml`, `DEVELOPMENT.md`, `scripts/hooks/import_safety.py` |
+
+**Final `git status --short`:**
+
+```
+ M .claude/settings.local.json
+```
+
+`.claude/settings.local.json` is local Claude permission / cache state and **remains uncommitted by design**. Confirmed not present in any of the three commits above.
+
+**Pre-commit hook state at session end:**
+
+```
+.\.venv\Scripts\python.exe scripts\hooks\import_safety.py   # exit 0
+.\.venv\Scripts\python.exe scripts\hooks\sql_guard.py       # exit 0
+git diff --check                                            # clean (CRLF warnings only)
+```
+
+**Next recommended step (post-session):**
+
+1. **Optional push / PR** — three commits are ready to push to the remote. No upstream review is currently outstanding for this change set.
+2. **Optional side-cleanup (deferred from Phase 5):**
+   - Mark the 35 delisted `.JK` / `.BK` tickers `INACTIVE` in the `tickers` table so the daily collector stops retrying them on each run.
+   - Decide NVDR `-R.BK` filtering (Open Question #1 in `docs/tasks/idx_set_enablement_plan.md`). At the new $450M SET threshold most NVDRs already fall below cap, so the universe-quality impact is small; can be folded into the inactive-ticker pass.
+3. **Optional external scheduling** — register `scripts/etl/yahooquery/schedule_monthly_idx_set_fundamentals.py` with Windows Task Scheduler / cron once a day. The wrapper's internal due rule keeps it cheap on non-due days while guaranteeing it fires on the 1st of each month or after a 25-day staleness.
