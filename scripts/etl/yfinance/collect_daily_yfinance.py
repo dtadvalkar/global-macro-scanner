@@ -27,11 +27,25 @@ from db import get_db
 # ------------------------------------------------------------------
 # Helper: fetch the list of active tickers from the DB
 # ------------------------------------------------------------------
-def fetch_active_tickers() -> list[str]:
-    """Return a list of ticker symbols that are marked as active."""
-    rows = get_db().query(
-        "SELECT ticker FROM tickers WHERE status = 'ACTIVE' OR status IS NULL"
-    )
+def fetch_active_tickers(markets: list[str] | None = None) -> list[str]:
+    """Return a list of ticker symbols that are marked as active.
+
+    If `markets` is provided (list of market codes like ['IDX', 'SET']),
+    the query is scoped to those markets. Otherwise all active tickers
+    across the universe are returned.
+    """
+    if markets:
+        rows = get_db().query(
+            "SELECT ticker FROM tickers "
+            "WHERE market = ANY(%s) "
+            "AND (status = 'ACTIVE' OR status IS NULL) "
+            "ORDER BY ticker",
+            (markets,),
+        )
+    else:
+        rows = get_db().query(
+            "SELECT ticker FROM tickers WHERE status = 'ACTIVE' OR status IS NULL"
+        )
     return [r[0] for r in (rows or [])]
 
 
@@ -153,20 +167,48 @@ def main():
         default="1d",
         help="yfinance period (e.g. 1d, 5d, 7d, 1mo). Default = 1d (daily run).",
     )
+    parser.add_argument(
+        "--exchange",
+        "--markets",
+        dest="exchange",
+        default=None,
+        help=(
+            "Exchange code(s) to scope the collection to; comma-separated "
+            "(e.g. IDX or IDX,SET). If omitted, all active tickers across "
+            "every market are collected. Matches the historical collector's "
+            "--exchange convention."
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the resolved ticker count and exit; do not download or write.",
+    )
     args = parser.parse_args()
+
+    markets = (
+        [m.strip().upper() for m in args.exchange.split(",") if m.strip()]
+        if args.exchange else None
+    )
 
     # ------------------------------------------------------------------
     # 1. Pull active tickers
     # ------------------------------------------------------------------
     try:
-        tickers = fetch_active_tickers()
-        print(f"🔎 Found {len(tickers)} active tickers.")
+        tickers = fetch_active_tickers(markets)
+        scope = f"markets={markets}" if markets else "all markets"
+        print(f"🔎 Found {len(tickers)} active tickers ({scope}).")
     except Exception as e:
         print(f"❌ Error fetching tickers: {e}")
         sys.exit(1)
 
     if not tickers:
         print("⚠️  No active tickers found. Exiting.")
+        return
+
+    if args.dry_run:
+        sample = ", ".join(tickers[:8]) + (" ..." if len(tickers) > 8 else "")
+        print(f"[dry-run] {len(tickers)} tickers to collect (period={args.period}): {sample}")
         return
 
     # ------------------------------------------------------------------
