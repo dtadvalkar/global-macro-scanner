@@ -206,7 +206,8 @@ def should_pass_screening(symbol_data, criteria=None):
     }
 
     # Add optional fields if available
-    for key in ['high_52w', 'rsi', 'sma50', 'sma200', 'atr_pct', 'debt_to_equity', 'current_ratio']:
+    for key in ['high_52w', 'rsi', 'sma50', 'sma200', 'atr_pct',
+                'debt_to_equity', 'current_ratio', 'avg_volume_20d']:
         if key in symbol_data:
             result[key] = symbol_data[key]
 

@@ -66,6 +66,103 @@ def dedupe_results(results):
     return deduped
 
 
+def _row_symbol(row):
+    """Return the symbol/ticker for a result row, or None."""
+    if not isinstance(row, dict):
+        return None
+    return row.get('symbol') or row.get('ticker')
+
+
+def _set_group_key(symbol):
+    """SET ordinary/NVDR grouping key.
+
+    Returns the ordinary `.BK` form for any SET ordinary share or NVDR
+    variant (`-R.BK`), and None for symbols that should not be grouped.
+    Non-SET symbols (e.g. NSE, IDX) return None so they pass through
+    untouched.
+    """
+    if not isinstance(symbol, str):
+        return None
+    if symbol.endswith('-R.BK'):
+        return symbol[: -len('-R.BK')] + '.BK'
+    if symbol.endswith('.BK'):
+        return symbol
+    return None
+
+
+def _liquidity_sort_key(row):
+    """Return a sort key (avg_volume_20d, volume) for liquidity comparison.
+
+    Missing or non-numeric fields fall through to -1 so they always lose
+    to a row with usable liquidity data. Returned as a tuple so the
+    standard max(... key=...) ranking applies avg_volume_20d first.
+    """
+    def _num(v):
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return -1.0
+        if f != f:  # NaN
+            return -1.0
+        return f
+    return (_num(row.get('avg_volume_20d')), _num(row.get('volume')))
+
+
+def dedupe_set_nvdr_results(results):
+    """Collapse SET ordinary/NVDR collisions at signal time.
+
+    For every group keyed by `_set_group_key`, keep the row with the
+    higher avg_volume_20d (fallback: higher volume; final tie-break:
+    ordinary `.BK` over NVDR `-R.BK`). Rows whose symbol returns a None
+    group key (non-SET symbols) pass through untouched.
+
+    Stable order: the kept row is emitted in the position of the first
+    occurrence within its group. Non-grouped rows keep their position.
+    """
+    # Bucket rows by group key, tracking each row's original index for
+    # stable emission order.
+    groups = {}            # group_key -> list[(idx, row)]
+    ordering = []          # list[(idx, group_key | None, row)]
+    for idx, row in enumerate(results):
+        symbol = _row_symbol(row)
+        gk = _set_group_key(symbol) if symbol is not None else None
+        ordering.append((idx, gk, row))
+        if gk is not None:
+            groups.setdefault(gk, []).append((idx, row))
+
+    # Decide the winner for every group that has at least one ordinary +
+    # NVDR collision. Groups with only one variant present pass through
+    # unchanged.
+    winners = {}  # group_key -> set of indices kept
+    for gk, rows in groups.items():
+        symbols = {_row_symbol(r) for _, r in rows}
+        has_ordinary = gk in symbols
+        has_nvdr = any(s and s.endswith('-R.BK') for s in symbols)
+        if not (has_ordinary and has_nvdr):
+            winners[gk] = {idx for idx, _ in rows}
+            continue
+
+        def _rank(item):
+            idx, row = item
+            sym = _row_symbol(row) or ''
+            # Higher liquidity wins; final tie-break: ordinary .BK (False
+            # < True; we want ordinary to win on equality, so invert).
+            is_nvdr = sym.endswith('-R.BK')
+            return _liquidity_sort_key(row) + (0 if not is_nvdr else -1,)
+
+        best_idx, _best_row = max(rows, key=_rank)
+        winners[gk] = {best_idx}
+
+    out = []
+    for idx, gk, row in ordering:
+        if gk is None:
+            out.append(row)
+            continue
+        if idx in winners.get(gk, set()):
+            out.append(row)
+    return out
+
+
 def _run_scanner_then_deep_scan(ibkr_universe, markets, criteria):
     """Run IBKR scanner (Option B) for enabled IBKR-compatible markets, then deep-scan hits.
 
@@ -167,7 +264,7 @@ def screen_universe(universe, criteria, markets=None):
           f"(DATA_SOURCE={DATA_SOURCE})")
 
     if DATA_SOURCE == 'yfinance':
-        return dedupe_results(_run_yfinance(universe, criteria))
+        return dedupe_set_nvdr_results(dedupe_results(_run_yfinance(universe, criteria)))
 
     if DATA_SOURCE == 'ibkr':
         if yfinance_tickers:
@@ -175,14 +272,18 @@ def screen_universe(universe, criteria, markets=None):
                   f"because DATA_SOURCE=ibkr (sample: {yfinance_tickers[:5]}).")
         scanner_results = _run_scanner_then_deep_scan(ibkr_tickers, markets, criteria)
         bulk_results = _run_ibkr_bulk(ibkr_tickers, criteria)
-        return dedupe_results(scanner_results + bulk_results)
+        return dedupe_set_nvdr_results(dedupe_results(scanner_results + bulk_results))
 
     # DATA_SOURCE == 'auto' (default): run both branches, combine, dedupe.
     scanner_results = _run_scanner_then_deep_scan(ibkr_tickers, markets, criteria)
     bulk_results = _run_ibkr_bulk(ibkr_tickers, criteria)
     yf_results = _run_yfinance(yfinance_tickers, criteria)
 
-    combined = dedupe_results(scanner_results + bulk_results + yf_results)
+    deduped = dedupe_results(scanner_results + bulk_results + yf_results)
+    combined = dedupe_set_nvdr_results(deduped)
+    nvdr_dropped = len(deduped) - len(combined)
     print(f"Combined results: scanner={len(scanner_results)}, ibkr_bulk={len(bulk_results)}, "
-          f"yfinance={len(yf_results)}, total_after_dedupe={len(combined)}")
+          f"yfinance={len(yf_results)}, total_after_dedupe={len(deduped)}"
+          + (f", set_nvdr_dropped={nvdr_dropped}" if nvdr_dropped else "")
+          + f", total_after_nvdr_dedupe={len(combined)}")
     return combined
