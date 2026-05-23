@@ -222,9 +222,37 @@ git diff --check                                                  # clean (CRLF 
 - None.
 - One incidental fix during B1: psycopg2 misparses literal `%` in SQL comments and string literals when ANY params are passed. Resolved by parameterizing the suffix patterns instead of inlining them (`%s` placeholders bound to `'%.JK'` / `'%.BK'`). Documented in the SQL header.
 
+## Follow-up session (2026-05-23) — NVDR dedup landed
+
+Signal-time NVDR dedup is now implemented in production. Open Q #1 in `docs/tasks/idx_set_enablement_plan.md` is fully resolved.
+
+### What landed
+
+- `screener/core.py` gained `dedupe_set_nvdr_results(results)` and the `_set_group_key` / `_liquidity_sort_key` helpers. It runs **after** the existing `dedupe_results` symbol/ticker dedup, on every `DATA_SOURCE` path (`yfinance` / `ibkr` / `auto`).
+- Policy: for each SET ordinary/NVDR collision (group key = `REPLACE(symbol, '-R.BK', '.BK')`), keep the row with higher `avg_volume_20d`; fallback to higher `volume`; final tie-break is the ordinary `.BK`. Non-SET symbols pass through untouched. Unique NVDRs with no ordinary counterpart pass through untouched.
+- `screening/screening_utils.py` `should_pass_screening` now carries `avg_volume_20d` into its result dict when present, so the screener-side dedup has the liquidity field available.
+- Combine-path logging extended: prints `set_nvdr_dropped=N` and a separate `total_after_nvdr_dedupe=N` when the dedup actually fired.
+- Tests at `tests/provider_tests/test_set_nvdr_dedup.py` cover all six required cases (NVDR-wins, ordinary-wins, tied-liquidity-to-ordinary, unique-NVDR-preserved, non-SET-untouched, end-to-end `DATA_SOURCE=auto`).
+
+### Also in the same session
+
+- `screening/screening_utils.py` was missing `import pandas as pd` -- `calculate_atr` uses `pd.concat` and silently fell through its `except` returning the default 0.05. py_compile cannot catch that. Fix is one line; new unit tests at `tests/unit_tests/test_screening_technicals.py` cover RSI / SMA / ATR helpers and the `atr_enabled` branch in `should_pass_screening`. The ATR test was specifically designed to fail before the import fix.
+
+### Tests
+
+```text
+.\.venv\Scripts\python.exe -m pytest tests\unit_tests\test_screening_technicals.py -q   # 10/10
+.\.venv\Scripts\python.exe -m pytest tests\provider_tests -q                            # 33/33
+.\.venv\Scripts\python.exe -m pytest tests\analytics\test_backtest_52w_strategy.py -q   # 9/9
+```
+
+### Backtest-side mirror
+
+The same NVDR policy is also wired into `scripts/spark/06_backtest_52w_strategy.py` as `--dedupe-nvdr`, plus an explicit `_set_group_key` matched 1:1 with the screener helper (tested via cross-reference in `tests/analytics/test_backtest_52w_strategy.py::test_set_group_key_matches_screener_helper`). The diagnostic run on the 2024-01-01..2026-04-30 NSE+IDX+SET cohort showed event-dedup taking 123 -> 78 and NVDR-dedup then a no-op (no same-date X.BK/X-R.BK collisions survived event dedup). See `docs/tasks/backtest_52w_strategy_progress.md` "V2 session" for the four-run table.
+
 ## Next recommended step
 
-1. **Implement signal-time NVDR dedup** (proposed in B2): join `REPLACE(ticker, '-R.BK', '.BK')` and keep the higher-liquidity variant. Touches `screener/core.py` after the YFinance + IBKR branch combine.
+1. **NVDR dedup (DONE 2026-05-23):** see "Follow-up session" above. `screener.core.dedupe_set_nvdr_results` plus tests.
 2. **Schedule the `.bat`** under Windows Task Scheduler per the steps above (operator action, one-time).
 3. **Re-run the v1 backtest after NVDR dedup** to compare signal count and forward-return distribution; AOT.BK vs AOT-R.BK divergence in the v1 results suggests this will change the per-horizon means meaningfully.
 4. Optional: extend `mark_inactive_idx_set_dead_tickers.py` (or fork it) to handle other markets that accumulate dead tickers (LSE `0XXX.L` historical IDs are the next obvious candidate -- noted in `docs/master_development_plan.md` Task 12 caveat).

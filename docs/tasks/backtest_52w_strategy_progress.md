@@ -151,6 +151,86 @@ The script enforces five checks at runtime, all of which passed for both the sam
 6. **Lookback handling for IDX/SET.** Only ~1 year of valid signal dates is available because the IDX/SET history starts 2024-05-15 and we require 252 trading rows of warmup. That's a data ceiling, not a script limitation.
 7. **All-cash, all-in implied.** No portfolio construction, no max-concurrent-positions cap. Real-money use would gate on both.
 
+## V2 session (2026-05-23)
+
+### Status
+
+- Current status: **DONE.** Added `--filter-set core|technical`, `--dedupe-events`, `--dedupe-nvdr`, `--transaction-bps N` to `scripts/spark/06_backtest_52w_strategy.py`. Per-ticker rolling RSI(14), SMA50, SMA200 and ATR(14) features added; technical filter applies thresholds from `config/criteria.py`. Unit tests added at `tests/analytics/test_backtest_52w_strategy.py` (9 tests, all green).
+
+### Files touched (this session)
+
+- `scripts/spark/06_backtest_52w_strategy.py` — added technical features + four new CLI flags; refactored post-processing into `dedupe_events`, `dedupe_nvdr`, `apply_transaction_costs`; extended summary JSON with `filter_set`, `transaction_bps`, `stage_counts`, and per-year metrics.
+- `tests/analytics/__init__.py` (new), `tests/analytics/test_backtest_52w_strategy.py` (new).
+
+### Runs
+
+```text
+# 1. Core baseline (matches the 2026-05-16 numbers exactly).
+.\.venv\Scripts\python.exe scripts\spark\06_backtest_52w_strategy.py `
+    --markets NSE,IDX,SET --start-date 2024-01-01 --end-date 2026-04-30 `
+    --filter-set core `
+    --output-dir data_files\spark\backtest_52w_v2_core
+
+# 2. Technical filter.
+.\.venv\Scripts\python.exe scripts\spark\06_backtest_52w_strategy.py `
+    --markets NSE,IDX,SET --start-date 2024-01-01 --end-date 2026-04-30 `
+    --filter-set technical `
+    --output-dir data_files\spark\backtest_52w_v2_technical
+
+# 3. Decision-grade as specified.
+.\.venv\Scripts\python.exe scripts\spark\06_backtest_52w_strategy.py `
+    --markets NSE,IDX,SET --start-date 2024-01-01 --end-date 2026-04-30 `
+    --filter-set technical --dedupe-events --dedupe-nvdr --transaction-bps 20 `
+    --output-dir data_files\spark\backtest_52w_v2
+
+# 4. Diagnostic: dedup+cost impact on the non-empty core cohort.
+.\.venv\Scripts\python.exe scripts\spark\06_backtest_52w_strategy.py `
+    --markets NSE,IDX,SET --start-date 2024-01-01 --end-date 2026-04-30 `
+    --filter-set core --dedupe-events --dedupe-nvdr --transaction-bps 20 `
+    --output-dir data_files\spark\backtest_52w_v2_core_dedup
+```
+
+### Results
+
+| Stage / run | core | technical | mcap | event_dedup | nvdr_dedup | bps |
+|---|---:|---:|---:|---:|---:|---:|
+| 1. core (v1 baseline) | 829 | — | **123** | — | — | 0 |
+| 2. technical | 829 | **0** | 0 | — | — | 0 |
+| 3. decision-grade | 829 | **0** | 0 | 0 | 0 | 20 |
+| 4. core + dedups + 20 bps (diagnostic) | 829 | — | 123 | **78** | 78 | 20 |
+
+| Run | 5d mean | 5d win | 10d mean | 10d win | 20d mean | 20d win |
+|---|---|---|---|---|---|---|
+| 1 | -1.40% | 41.5% | -1.56% | 38.2% | -0.72% | 38.2% |
+| 2 | — | — | — | — | — | — |
+| 3 | — | — | — | — | — | — |
+| 4 | -1.18% | 46.2% | -1.72% | 41.0% | +1.15% | 42.3% |
+
+(Negative means after the 20-bps deduction in run 4.)
+
+### What the numbers mean
+
+- **The decision-grade pass produced zero signals.** Production CRITERIA's MA thresholds (`price_vs_sma50_pct >= 0.95`, `sma50_vs_sma200_pct >= 0.93`) are mathematically at odds with the 52-week-low entry: a stock fresh off its 52w low is well below SMA50 in a downtrend, and the 50-day MA is below the 200-day MA. The technical filter is therefore essentially **mutually exclusive** with the core entry on this universe in this regime.
+- **This is not a script bug.** Live `should_pass_screening` with `rsi_enabled / ma_enabled / atr_enabled = True` would behave the same way; the 2026-04-22..2026-05-16 smoke runs all reported 0 catches consistent with that.
+- **The dedup chain works as advertised.** On the 123-signal core cohort: event dedup collapsed 45 contiguous same-ticker runs (123 -> 78); NVDR dedup was a no-op (the surviving 78 signals had no same-date X.BK/X-R.BK collisions because event dedup already kept only the first row of each run on each side). The 20-bps cost shifted means and win rates measurably but not radically.
+- **The 17-distinct-ticker, SET-only signal set persists across all non-zero runs.** The mcap filter remains the dominant narrower (829 -> 123); event dedup is the next-most-impactful reducer.
+
+### Limitations and next steps (after V2)
+
+1. **Re-tune the technical filter for the 52-week-low context.** The production CRITERIA was set assuming a trend-following entry; combined with mean-reversion 52w-low entry it kills the signal set entirely. Options: relax `price_vs_sma50_pct` / `sma50_vs_sma200_pct` to e.g. 0.70 / 0.85, or split CRITERIA into entry-type-specific presets in `config/criteria.py`. Out of scope for V2 because thresholds should not be tuned to make backtest results look good.
+2. **Holding-period exit logic.** Still hold-to-horizon; trailing stop / take-profit would change the picture.
+3. **Position sizing / max concurrent positions.** Still all-in, all-cash assumed.
+4. **Regime stratification beyond per-year.** Per-year is now in the summary JSON but quarter / regime slicing would tell more.
+5. **Baseline comparison.** Buy-and-hold over the same universe / window is the natural counter-baseline; not yet wired.
+
+### Sanity checks
+
+All clean on all four runs:
+- No duplicate (ticker, signal_date) rows.
+- All signal_date values fall within the requested range.
+- Per-horizon `missing_future` accounting balances.
+- Tests at `tests/analytics/test_backtest_52w_strategy.py` cover technical-feature warmup, technical-narrows-or-equals invariant, event dedup collapse, NVDR liquidity tie-break + ordinary tie-break, transaction-bps exactness, and no-duplicate-ticker/date post-dedup.
+
 ## Recommended next iteration
 
 1. **Add the RSI / MA / ATR filters.** Replicate `calculate_rsi` etc. on the rolling windows; verify they match the production producer on a small sample (the existing Phase 4 pattern in `scripts/spark/04_compare.py` is the template).
