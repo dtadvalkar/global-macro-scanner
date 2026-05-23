@@ -8,6 +8,7 @@ from config import CRITERIA
 from config.markets import get_min_market_cap
 from datetime import datetime
 import numpy as np
+import pandas as pd
 
 def should_pass_screening(symbol_data, criteria=None):
     """
